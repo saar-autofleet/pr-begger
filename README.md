@@ -61,20 +61,23 @@ TUI with `c`.
 Run `pr-begger` with no arguments.
 
 ```text
- █▀▀▄ █▀▀▄    █▀▀▄ █▀▀▀ ▄▀▀▀ ▄▀▀▀ █▀▀▀ █▀▀▄                    ▄▀▀▀▀▄  Rubber stamp   ▄▀▄▄   AI review      ▄▀▀▄   Design
- ▀▀▀▀ ▀▀▀▀    ▀▀▀▀ ▀▀▀  ▀ ▀▀ ▀ ▀▀ ▀▀▀  ▀▀▀▀                     ████   3 PRs        ▄▀▀██▀▀▄ 2 PRs          █▀▀█   2 PRs
- ▀    ▀ ▀▀    ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀ ▀▀                   ▄▀▀▀▀▀▀▄ just approve ▀▀█▀▀█▀▀ bot reviews   ██████  humans think
- Begging 7   My PRs 3   Following 4   1 new                   ▀▀▀▀▀▀▀                ▀▀▀▀▀▀               ▀▀▀  ▀▀▀
+ ███  ███     ███  ████  ███  ███ ████ ███                ██████   Rubber stamp     ██     AI review        ██     Design
+ █  █ █  █    █  █ █    █    █    █    █  █                 ██     3 PRs        ██████████ 2 PRs          ██  ██   2 PRs
+ ███  ███     ███  ███  █ ██ █ ██ ███  ███              ██████████ just approve ██████████ bot reviews    ██  ██   humans think
+ █    █ █     █  █ █    █  █ █  █ █    █ █              ██  ██  ██                ██  ██                ██      ██
+ █    █  █    ███  ████  ███  ███ ████ █  █
+ Begging 7   My PRs 3   Following 4   1 new
 ─── Rubber stamp 3 ────── mechanical change, approve as-is                              ┌ api#812                            × ┐
 ▸● stamp  api#812       Bump serde to 1.0.230 across wo… dana           +14 −14  1d ✓ ○ │                                      │
- ● stamp  infra#90      Pin terraform provider versions  you            +22 −22  1d ✓ ✓ │   ▄▀▀▀▀▄   Rubber stamp              │
- ● stamp  web#77        Rename FleetCard props (no beha… omer           +48 −48  5h ◐ ○ │  ▀▀▀▀▀▀▀▀  mechanical change,        │
-─── AI review 2 ────── let an AI agent go over it                                       │  ▄▀▀▀▀▀▀▄  approve as-is             │
- ● ai     dispatch#1290 Add retry budget to the matcher… lior          +212 −40  2d ✓ ○ │ ▀▀▀▀▀▀▀▀▀▀ asked by dana · 1d        │
- ● ai     dispatch#1294 Typed config loader for routing… maya         +330 −120  8h ✗ ○ │ ▀▀▀▀▀▀▀▀▀▀                           │
-─── Design review 2 ────── needs a human design review                                  │                                      │
- ● design billing#431   Split invoice ledger into event… noa         +1840 −610  3d ✓ ✗ │ “lockfile only”                      │
- ● design infra#88      Move workers to spot node pools  you            +96 −12 20h · ○ │                                      │
+ ● stamp  infra#90      Pin terraform provider versions  you            +22 −22  1d ✓ ✓ │   ████████    Rubber stamp           │
+ ● stamp  web#77        Rename FleetCard props (no beha… omer           +48 −48  5h ◐ ○ │     ████      mechanical change,     │
+─── AI review 2 ────── let an AI agent go over it                                       │     ████      approve as-is          │
+ ● ai     dispatch#1290 Add retry budget to the matcher… lior          +212 −40  2d ✓ ○ │   ████████    asked by dana · 1d     │
+ ● ai     dispatch#1294 Typed config loader for routing… maya         +330 −120  8h ✗ ○ │ ████████████                         │
+─── Design review 2 ────── needs a human design review                                  │ ██  ██  ██                           │
+ ● design billing#431   Split invoice ledger into event… noa         +1840 −610  3d ✓ ✗ │                                      │
+ ● design infra#88      Move workers to spot node pools  you            +96 −12 20h · ○ │ “lockfile only”                      │
+                                                                                        │                                      │
                                                                                         │ Bump serde to 1.0.230 across         │
                                                                                         │ workspace                            │
                                                                                         │ acme/api                             │
@@ -82,7 +85,6 @@ Run `pr-begger` with no arguments.
                                                                                         │ author   dana                        │
                                                                                         │ opened   1d ago                      │
                                                                                         │ size     +14 −14                     │
-                                                                                        │ ci       ✓ passing                   │
                                                                                         └──────────────────────────────────────┘
  ↑↓ move  ⏎ open  c beg  f filter  tab screen  w followed  p people  r refresh  ? help  q quit
 ```
@@ -95,17 +97,20 @@ own comments do not count). Opening a PR from this screen, or pressing `x`,
 marks it seen.
 
 ```text
- █▀▀▄ █▀▀▄    █▀▀▄ █▀▀▀ ▄▀▀▀ ▄▀▀▀ █▀▀▀ █▀▀▄                    ▄▀▀▀▀▄  Rubber stamp   ▄▀▄▄   AI review      ▄▀▀▄   Design
- ▀▀▀▀ ▀▀▀▀    ▀▀▀▀ ▀▀▀  ▀ ▀▀ ▀ ▀▀ ▀▀▀  ▀▀▀▀                     ████   1 PR         ▄▀▀██▀▀▄ 0 PRs          █▀▀█   1 PR
- ▀    ▀ ▀▀    ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀ ▀▀                   ▄▀▀▀▀▀▀▄ just approve ▀▀█▀▀█▀▀ bot reviews   ██████  humans think
- Begging 7   My PRs 3   Following 4   1 new                   ▀▀▀▀▀▀▀                ▀▀▀▀▀▀               ▀▀▀  ▀▀▀
+ ███  ███     ███  ████  ███  ███ ████ ███                ██████   Rubber stamp     ██     AI review        ██     Design
+ █  █ █  █    █  █ █    █    █    █    █  █                 ██     1 PR         ██████████ 0 PRs          ██  ██   1 PR
+ ███  ███     ███  ███  █ ██ █ ██ ███  ███              ██████████ just approve ██████████ bot reviews    ██  ██   humans think
+ █    █ █     █  █ █    █  █ █  █ █    █ █              ██  ██  ██                ██  ██                ██      ██
+ █    █  █    ███  ████  ███  ███ ████ █  █
+ Begging 7   My PRs 3   Following 4   1 new
 ─── New activity 1 ────── since you last looked · x marks seen                          ┌ infra#88                           × ┐
 ▸● design infra#88      ● Move workers to spot node …    +96 −12  ◆2/5 blocked  20h · ○ │                                      │
-─── My open PRs 2 ──────                                                                │    ▄▀▀▄    Design review             │
- ● stamp  infra#90        Pin terraform provider ver…    +22 −22  ◇0/1 ready     1d ✓ ✓ │   ▀▀▀▀▀▀   needs a human design      │
- ○ ?      dispatch#1301   WIP: zone-aware batching      +410 −90     – draft     3h ◐ · │   ▄▀▀▀▀▄   review                    │
-                                                                                        │  ███  ███  asked by you · 19h        │
-                                                                                        │ ▀▀▀    ▀▀▀                           │
+─── My open PRs 2 ──────                                                                │     ████      Design review          │
+ ● stamp  infra#90        Pin terraform provider ver…    +22 −22  ◇0/1 ready     1d ✓ ✓ │     ████      needs a human design   │
+ ○ ?      dispatch#1301   WIP: zone-aware batching      +410 −90     – draft     3h ◐ · │     ████      review                 │
+                                                                                        │   ██    ██    asked by you · 20h     │
+                                                                                        │   ██    ██                           │
+                                                                                        │ ██        ██                         │
                                                                                         │                                      │
                                                                                         │ “cost vs. eviction risk tradeoff”    │
                                                                                         │                                      │
@@ -116,7 +121,6 @@ marks it seen.
                                                                                         │ opened   20h ago                     │
                                                                                         │ size     +96 −12                     │
                                                                                         │ ci       · no checks                 │
-                                                                                        │ review   ○ 2 pending                 │
                                                                                         └──────────────────────────────────────┘
  ↑↓ move  ⏎ open  c beg  f filter  tab screen  x seen  p people  r refresh  ? help  q quit     updated just now · org:Autofleet
 ```
@@ -128,18 +132,21 @@ people and teams you follow, grouped by author. On the begging board, `w`
 narrows it to PRs from people you follow.
 
 ```text
- █▀▀▄ █▀▀▄    █▀▀▄ █▀▀▀ ▄▀▀▀ ▄▀▀▀ █▀▀▀ █▀▀▄                    ▄▀▀▀▀▄  Rubber stamp   ▄▀▄▄   AI review      ▄▀▀▄   Design
- ▀▀▀▀ ▀▀▀▀    ▀▀▀▀ ▀▀▀  ▀ ▀▀ ▀ ▀▀ ▀▀▀  ▀▀▀▀                     ████   1 PR         ▄▀▀██▀▀▄ 2 PRs          █▀▀█   1 PR
- ▀    ▀ ▀▀    ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀ ▀▀                   ▄▀▀▀▀▀▀▄ just approve ▀▀█▀▀█▀▀ bot reviews   ██████  humans think
- Begging 7   My PRs 3   Following 4   1 new                   ▀▀▀▀▀▀▀                ▀▀▀▀▀▀               ▀▀▀  ▀▀▀
+ ███  ███     ███  ████  ███  ███ ████ ███                ██████   Rubber stamp     ██     AI review        ██     Design
+ █  █ █  █    █  █ █    █    █    █    █  █                 ██     1 PR         ██████████ 2 PRs          ██  ██   1 PR
+ ███  ███     ███  ███  █ ██ █ ██ ███  ███              ██████████ just approve ██████████ bot reviews    ██  ██   humans think
+ █    █ █     █  █ █    █  █ █  █ █    █ █              ██  ██  ██                ██  ██                ██      ██
+ █    █  █    ███  ████  ███  ███ ████ █  █
+ Begging 7   My PRs 3   Following 4   1 new
 ─── dana 1 ──────                                                                       ┌ api#812                            × ┐
 ▸● stamp  api#812       Bump serde to 1.0.230 across workspace          +14 −14  1d ✓ ○ │                                      │
-─── lior 1 ──────                                                                       │   ▄▀▀▀▀▄   Rubber stamp              │
- ● ai     dispatch#1290 Add retry budget to the matcher client         +212 −40  2d ✓ ○ │  ▀▀▀▀▀▀▀▀  mechanical change,        │
-─── maya 1 ──────                                                                       │  ▄▀▀▀▀▀▀▄  approve as-is             │
- ● ai     dispatch#1294 Typed config loader for routing service       +330 −120  8h ✗ ○ │ ▀▀▀▀▀▀▀▀▀▀ asked by dana · 1d        │
-─── noa 1 ──────                                                                        │ ▀▀▀▀▀▀▀▀▀▀                           │
- ● design billing#431   Split invoice ledger into events + projecti… +1840 −610  3d ✓ ✗ │                                      │
+─── lior 1 ──────                                                                       │   ████████    Rubber stamp           │
+ ● ai     dispatch#1290 Add retry budget to the matcher client         +212 −40  2d ✓ ○ │     ████      mechanical change,     │
+─── maya 1 ──────                                                                       │     ████      approve as-is          │
+ ● ai     dispatch#1294 Typed config loader for routing service       +330 −120  8h ✗ ○ │   ████████    asked by dana · 1d     │
+─── noa 1 ──────                                                                        │ ████████████                         │
+ ● design billing#431   Split invoice ledger into events + projecti… +1840 −610  3d ✓ ✗ │ ██  ██  ██                           │
+                                                                                        │                                      │
                                                                                         │ “lockfile only”                      │
                                                                                         │                                      │
                                                                                         │ Bump serde to 1.0.230 across         │
@@ -149,7 +156,6 @@ narrows it to PRs from people you follow.
                                                                                         │ author   dana                        │
                                                                                         │ opened   1d ago                      │
                                                                                         │ size     +14 −14                     │
-                                                                                        │ ci       ✓ passing                   │
                                                                                         └──────────────────────────────────────┘
  ↑↓ move  ⏎ open  c beg  f filter  tab screen  + follow  p people  r refresh  ? help  q quit   updated just now · org:Autofleet
 ```
@@ -180,24 +186,26 @@ teams = ["Autofleet/dev-ordering"]
 ```
 
 ```text
- █▀▀▄ █▀▀▄    █▀▀▄ █▀▀▀ ▄▀▀▀ ▄▀▀▀ █▀▀▀ █▀▀▄
- ▀▀▀▀ ▀▀▀▀    ▀▀▀▀ ▀▀▀  ▀ ▀▀ ▀ ▀▀ ▀▀▀  ▀▀▀▀
- ▀    ▀ ▀▀    ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀ ▀▀
- Begging 7   My PRs 3   Following 4   1 new
-─── dana 1 ────── ┌ People & teams you follow                              × ┐
-▸● stamp  api#812 │                                                          │  +14 −14  1d ✓ ○
-─── lior 1 ────── │   user  dana                                             │
- ● ai     dispatch│ ▸ user  lior                                             │ +212 −40  2d ✓ ○
-─── maya 1 ────── │   user  maya                                             │
- ● ai     dispatch│   user  noa                                              │+330 −120  8h ✗ ○
-─── noa 1 ──────  │   team  acme/dev-ordering                                │
- ● design billing#│                                                          │1840 −610  3d ✓ ✗
-                  │   add: galinareznikk▏                                    │
-                  │   login, org/team, teams/<team>, or a GitHub URL         │
-                  │   enter add · esc cancel                                 │
-                  │                                                          │
-                  │                                                          │
-                  └──────────────────────────────────────────────────────────┘
+ ███  ███     ███  ████  ███  ███ ████ ███
+ █  █ █  █    █  █ █    █    █    █    █  █
+ ███  ███     ███  ███  █ ██ █ ██ ███  ███
+ █    █ █     █  █ █    █  █ █  █ █    █ █
+ █    █  █    ███  ████  ███  ███ ████ █  █
+ Begging 7   My PRs ┌ People & teams you follow                              × ┐
+─── dana 1 ──────   │                                                          │
+▸● stamp  api#812   │   user  dana                                             │    +14 −14  1d ✓ ○
+─── lior 1 ──────   │ ▸ user  lior                                             │
+ ● ai     dispatch#1│   user  maya                                             │   +212 −40  2d ✓ ○
+─── maya 1 ──────   │   user  noa                                              │
+ ● ai     dispatch#1│   team  acme/dev-ordering                                │  +330 −120  8h ✗ ○
+─── noa 1 ──────    │                                                          │
+ ● design billing#43│   add: galinareznikk▏                                    │ +1840 −610  3d ✓ ✗
+                    │   login, org/team, teams/<team>, or a GitHub URL         │
+                    │   enter add · esc cancel                                 │
+                    │                                                          │
+                    │                                                          │
+                    └──────────────────────────────────────────────────────────┘
+
 
 
 
@@ -206,7 +214,9 @@ teams = ["Autofleet/dev-ordering"]
 
 (These are the real renderer's output for demo data:
 `cargo test print_screens -- --ignored --nocapture`, with `W`/`H` env vars for
-the size. In a terminal the icons, dots and title bars are in soft pastels.)
+the size. In a terminal the `█` pixels, dots and title bars are soft pastels;
+each pixel is a whole cell painted with a background colour, so it stays crisp
+in any terminal.)
 
 ### Keys
 

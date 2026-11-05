@@ -136,9 +136,9 @@ pub fn draw(f: &mut Frame, app: &mut App) -> usize {
         f.render_widget(Paragraph::new("PR Begger: make me bigger"), area);
         return 1;
     }
-    let tall = area.height >= 18 && area.width >= 52;
+    let tall = area.height >= 22 && area.width >= 52;
     let [head, body, foot] = Layout::vertical([
-        Constraint::Length(if tall { 4 } else { 1 }),
+        Constraint::Length(if tall { 6 } else { 1 }),
         Constraint::Min(1),
         Constraint::Length(1),
     ])
@@ -252,7 +252,7 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
     let [left, right] =
         Layout::horizontal([Constraint::Length(left_w), Constraint::Min(0)]).areas(area);
     banner.render(left.x + 1, left.y, left, f.buffer_mut());
-    let tabs_row = Rect::new(area.x, area.y + 3, area.width, 1);
+    let tabs_row = Rect::new(area.x, area.y + 5, area.width, 1);
     f.render_widget(Paragraph::new(tabs(app)), tabs_row);
     draw_legend(f, app, right);
 }
@@ -269,12 +269,11 @@ fn draw_compact_header(f: &mut Frame, app: &App, area: Rect) {
 /// A small icon per kind with its count, like a 90s desktop shortcut row.
 /// With a filter on, the other kinds fade.
 fn draw_legend(f: &mut Frame, app: &App, area: Rect) {
-    const ENTRY_W: u16 = 22;
+    const ENTRY_W: u16 = 24;
     if area.width < ENTRY_W * 3 || area.height < 4 {
         return;
     }
     let list = app.list(app.screen);
-    // icons are 4 rows: they may use the tab row, which is empty this far right
     // right-aligned, so a long tab row (new count, filter) does not run into it
     let w = ENTRY_W * 3;
     let area = Rect::new(area.right() - w, area.y, w, area.height.min(4));
@@ -307,7 +306,7 @@ fn draw_legend(f: &mut Frame, app: &App, area: Rect) {
                 muted(),
             )),
         ];
-        let tr = Rect::new(r.x + 9, r.y, r.width.saturating_sub(9), 3);
+        let tr = Rect::new(r.x + 11, r.y, r.width.saturating_sub(11), 3);
         f.render_widget(Paragraph::new(text), tr);
     }
 }
@@ -633,12 +632,12 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
     );
     let inner = block.inner(area);
     f.render_widget(block, area);
-    if inner.height < 7 || inner.width < 20 {
+    if inner.height < 9 || inner.width < 24 {
         return;
     }
 
     pixel::icon(pr.kind()).render(inner.x + 1, inner.y + 1, inner, f.buffer_mut());
-    let side = Rect::new(inner.x + 12, inner.y + 1, inner.width.saturating_sub(13), 5);
+    let side = Rect::new(inner.x + 15, inner.y + 1, inner.width.saturating_sub(16), 6);
     let mut head = vec![];
     match &pr.request {
         Some(r) => {
@@ -665,9 +664,9 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
 
     let body_area = Rect::new(
         inner.x + 1,
-        inner.y + 7,
+        inner.y + 8,
         inner.width.saturating_sub(2),
-        inner.height.saturating_sub(7),
+        inner.height.saturating_sub(8),
     );
     let mut lines = Vec::new();
     if let Some(why) = pr.request.as_ref().and_then(|r| r.why.as_deref()) {

@@ -1060,7 +1060,20 @@ mod screens {
             .unwrap();
             let buf = t.backend().buffer();
             for y in 0..h {
-                let line: String = (0..w).map(|x| buf[(x, y)].symbol().to_string()).collect();
+                // solid pixels are coloured blank cells; show them as █ in text
+                let line: String = (0..w)
+                    .map(|x| {
+                        let c = &buf[(x, y)];
+                        let pixel = c.symbol() == " "
+                            && matches!(c.bg, ratatui::style::Color::Rgb(..))
+                            && c.fg == ratatui::style::Color::Reset;
+                        if pixel {
+                            "█".to_string()
+                        } else {
+                            c.symbol().to_string()
+                        }
+                    })
+                    .collect();
                 println!("{}", line.trim_end());
             }
             println!();
