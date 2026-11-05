@@ -31,6 +31,7 @@ pub mod pal {
     pub const SKY_DARK: Color = Color::Rgb(108, 148, 198);
     pub const LILAC_DARK: Color = Color::Rgb(148, 128, 184);
     pub const BUTTER_DARK: Color = Color::Rgb(217, 187, 92);
+    pub const STEEL_DARK: Color = Color::Rgb(122, 113, 142);
     /// Deep plum-grey: pupils, and text-dump detection of dark pixels.
     pub const OUTLINE: Color = Color::Rgb(92, 84, 112);
     /// Text on pastel backgrounds.
@@ -172,87 +173,90 @@ fn gradient(y: usize) -> Color {
 // bottom edges, and a cream highlight. Upper case is the shade.
 //
 //   w cream highlight   h/H wood    r/R rubber    g/G ink
-//   b/B robot           e eye glow  k pupil       s steel
+//   b/B robot           e eye glow  k pupil       s/S steel
 //   y/Y bulb            l/L lilac
 
-// Detail-window icons: 10×10 square pixels, 20 columns × 10 rows.
+// Pixels are tall (one cell each, about 1:2), which doubles the
+// horizontal detail over square two-cell pixels at the same size.
+
+// Detail-window icons: 20×10 pixels, 20 columns × 10 rows.
 
 const STAMP: [&str; 10] = [
-    "...whhH...", //
-    "..whhhhH..", //
-    "...hhhH...", //
-    "....hH....", //
-    "....hH....", //
-    "..rrrrrR..", //
-    ".wrrrrrrR.", //
-    ".RRRRRRRR.", //
-    "..........", //
-    ".g.gG.gGg.", //
+    "......wwhhhhHH......", //
+    ".....whhhhhhhHH.....", //
+    "......hhhhhhHH......", //
+    "........hhHH........", //
+    "........hhHH........", //
+    "..rrrrrrrrrrrrrrRR..", //
+    ".wrrrrrrrrrrrrrrrRR.", //
+    ".RRRRRRRRRRRRRRRRRR.", //
+    "....................", //
+    ".gg..ggGG..gg..ggGG.", //
 ];
 
 const ROBOT: [&str; 10] = [
-    "..........", //
-    "....yY....", //
-    ".....s....", //
-    ".bbbbbbbB.", //
-    ".bwbbbbbB.", //
-    "sbekbbekBs", //
-    "sbrbbbbrBs", //
-    ".bsbsbsbB.", //
-    ".BBBBBBBB.", //
-    "..BB..BB..", //
+    "........yyYY........", //
+    ".........ss.........", //
+    "..bbbbbbbbbbbbbbBB..", //
+    "..bwwbbbbbbbbbbbBB..", //
+    "ssbbeekbbbbbbeekBBss", //
+    "ssbbrrbbbbbbbbrrBBss", //
+    "..bbbssssssssssbBB..", //
+    "..BBBBBBBBBBBBBBBB..", //
+    "....BBBB....BBBB....", //
+    "....................", //
 ];
 
 const COMPASS: [&str; 10] = [
-    "....hH....", //
-    "...whhH...", //
-    "....hH....", //
-    "....lL....", //
-    "...lL.L...", //
-    "...lL.L...", //
-    "..lL...L..", //
-    "..lL...rR.", //
-    ".lL.....y.", //
-    ".s..bbb.b.", //
+    "........hhHH........", //
+    ".......whhhhH.......", //
+    "........hhHH........", //
+    "........llLL........", //
+    ".......llL..lL......", //
+    "......llL....lL.....", //
+    ".....llL......lL....", //
+    "....llL........rRR..", //
+    "...llL..........yY..", //
+    "..sS....bbbbbbb..k..", //
 ];
 
 const QUESTION: [&str; 10] = [
-    "..........", //
-    "..llllL...", //
-    ".lwLLLLL..", //
-    ".lL...lL..", //
-    "......lL..", //
-    ".....lL...", //
-    "....lL....", //
-    "....lL....", //
-    "..........", //
-    "....lL....", //
+    "......llllllLL......", //
+    ".....lwwLLLLLLL.....", //
+    "....llL.......lL....", //
+    "..............lL....", //
+    ".............lL.....", //
+    "...........llL......", //
+    ".........llL........", //
+    ".........lL.........", //
+    "....................", //
+    ".........lL.........", //
 ];
 
-// Header legend icons: 7×5 square pixels, 14 columns × 5 rows.
+// Header legend icons: 14×5 pixels, 14 columns × 5 rows.
 
 const MINI_STAMP: [&str; 5] = [
-    "..whH..", //
-    "..hhH..", //
-    "...H...", //
-    ".rrrrR.", //
-    ".RRRRR.", //
+    "....whhhHH....", //
+    ".....hhHH.....", //
+    ".rrrrrrrrrrRR.", //
+    ".RRRRRRRRRRRR.", //
+    "..gg.ggGG.gg..", //
 ];
 
 const MINI_ROBOT: [&str; 5] = [
-    "...y...", //
-    ".bbbbB.", //
-    "sbebeBs", //
-    ".bsssB.", //
-    ".BB.BB.", //
+    "......yY......", //
+    "..bbbbbbbbbB..", //
+    "ssbeekbbeekBss", //
+    "..bbsssssbbB..", //
+    "..BBBB..BBBB..", //
 ];
 
 const MINI_COMPASS: [&str; 5] = [
-    "...hH..", //
-    "...lL..", //
-    "..lL.L.", //
-    ".lL..rR", //
-    ".s.bb.y", //
+    ".....whHH.....", //
+    "......lL......", //
+    ".....lL.lL....", //
+    "....lL....rR..", //
+    "...sS..bbbb.yY", //
 ];
 
 fn sprite_color(ch: char) -> Option<Color> {
@@ -272,6 +276,7 @@ fn sprite_color(ch: char) -> Option<Color> {
         'l' => pal::LILAC,
         'L' => pal::LILAC_DARK,
         's' => pal::FADE,
+        'S' => pal::STEEL_DARK,
         _ => return None,
     })
 }
@@ -284,7 +289,7 @@ pub fn icon(kind: Option<Kind>) -> Bitmap {
         Some(Kind::Design) => &COMPASS,
         None => &QUESTION,
     };
-    Bitmap::from_rows(rows, 2, sprite_color)
+    Bitmap::from_rows(rows, 1, sprite_color)
 }
 
 /// The header legend's small kind icon.
@@ -294,7 +299,7 @@ pub fn mini(kind: Kind) -> Bitmap {
         Kind::Ai => &MINI_ROBOT,
         Kind::Design => &MINI_COMPASS,
     };
-    Bitmap::from_rows(rows, 2, sprite_color)
+    Bitmap::from_rows(rows, 1, sprite_color)
 }
 
 #[cfg(test)]
@@ -313,10 +318,10 @@ mod tests {
     #[test]
     fn sprite_rows_are_rectangular() {
         for rows in [STAMP, ROBOT, COMPASS, QUESTION] {
-            assert!(rows.iter().all(|r| r.chars().count() == 10), "{rows:?}");
+            assert!(rows.iter().all(|r| r.chars().count() == 20), "{rows:?}");
         }
         for rows in [MINI_STAMP, MINI_ROBOT, MINI_COMPASS] {
-            assert!(rows.iter().all(|r| r.chars().count() == 7), "{rows:?}");
+            assert!(rows.iter().all(|r| r.chars().count() == 14), "{rows:?}");
         }
         // every pixel letter has a colour
         for rows in [

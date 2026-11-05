@@ -61,24 +61,24 @@ TUI with `c`.
 Run `pr-begger` with no arguments.
 
 ```text
- ███  ███     ███  ████  ███  ███ ████ ███      ██████                        ██                          ████
- █  █ █  █    █  █ █    █    █    █    █  █     ██████     Rubber stamp   ██████████   AI review          ████     Design
- ███  ███     ███  ███  █ ██ █ ██ ███  ███        ██       3 PRs        ██████████████ 2 PRs            ████  ██   2 PRs
- █    █ █     █  █ █    █  █ █  █ █    █ █    ██████████   just approve   ██████████   bot reviews    ████    ████ humans think
- █    █  █    ███  ████  ███  ███ ████ █  █   ██████████                  ████  ████                  ██  ████  ██
+ ███  ███     ███  ████  ███  ███ ████ ███      ██████                        ██                         ████
+ █  █ █  █    █  █ █    █    █    █    █  █      ████      Rubber stamp   ██████████   AI review          ██       Design
+ ███  ███     ███  ███  █ ██ █ ██ ███  ███   ████████████  3 PRs        ██████████████ 2 PRs             ██ ██     2 PRs
+ █    █ █     █  █ █    █  █ █  █ █    █ █   ████████████  just approve   ██████████   bot reviews      ██    ██   humans think
+ █    █  █    ███  ████  ███  ███ ████ █  █   ██ ████ ██                  ████  ████                   ██  ████ ██
  Begging 7   My PRs 3   Following 4   1 new
 ─── Rubber stamp 3 ────── mechanical change, approve as-is                              ┌ api#812                            × ┐
 ▸● stamp  api#812       Bump serde to 1.0.230 across wo… dana           +14 −14  1d ✓ ○ │                                      │
  ● stamp  infra#90      Pin terraform provider versions  you            +22 −22  1d ✓ ✓ │       ████████                       │
- ● stamp  web#77        Rename FleetCard props (no beha… omer           +48 −48  5h ◐ ○ │     ████████████                     │
+ ● stamp  web#77        Rename FleetCard props (no beha… omer           +48 −48  5h ◐ ○ │      ██████████                      │
 ─── AI review 2 ────── let an AI agent go over it                                       │       ████████        Rubber stamp   │
  ● ai     dispatch#1290 Add retry budget to the matcher… lior          +212 −40  2d ✓ ○ │         ████          mechanical     │
  ● ai     dispatch#1294 Typed config loader for routing… maya         +330 −120  8h ✗ ○ │         ████          change,        │
-─── Design review 2 ────── needs a human design review                                  │     ████████████      approve as-is  │
- ● design billing#431   Split invoice ledger into event… noa         +1840 −610  3d ✓ ✗ │   ████████████████    asked by dana  │
- ● design infra#88      Move workers to spot node pools  you            +96 −12 20h · ○ │   ████████████████    · 1d           │
+─── Design review 2 ────── needs a human design review                                  │   ████████████████    approve as-is  │
+ ● design billing#431   Split invoice ledger into event… noa         +1840 −610  3d ✓ ✗ │  ██████████████████   asked by dana  │
+ ● design infra#88      Move workers to spot node pools  you            +96 −12 20h · ○ │  ██████████████████   · 1d           │
                                                                                         │                                      │
-                                                                                        │   ██  ████  ██████                   │
+                                                                                        │  ██  ████  ██  ████                  │
                                                                                         │                                      │
                                                                                         │ “lockfile only”                      │
                                                                                         │                                      │
@@ -99,24 +99,24 @@ own comments do not count). Opening a PR from this screen, or pressing `x`,
 marks it seen.
 
 ```text
- ███  ███     ███  ████  ███  ███ ████ ███      ██████                        ██                          ████
- █  █ █  █    █  █ █    █    █    █    █  █     ██████     Rubber stamp   ██████████   AI review          ████     Design
- ███  ███     ███  ███  █ ██ █ ██ ███  ███        ██       1 PR         ██████████████ 0 PRs            ████  ██   1 PR
- █    █ █     █  █ █    █  █ █  █ █    █ █    ██████████   just approve   ██████████   bot reviews    ████    ████ humans think
- █    █  █    ███  ████  ███  ███ ████ █  █   ██████████                  ████  ████                  ██  ████  ██
+ ███  ███     ███  ████  ███  ███ ████ ███      ██████                        ██                         ████
+ █  █ █  █    █  █ █    █    █    █    █  █      ████      Rubber stamp   ██████████   AI review          ██       Design
+ ███  ███     ███  ███  █ ██ █ ██ ███  ███   ████████████  1 PR         ██████████████ 0 PRs             ██ ██     1 PR
+ █    █ █     █  █ █    █  █ █  █ █    █ █   ████████████  just approve   ██████████   bot reviews      ██    ██   humans think
+ █    █  █    ███  ████  ███  ███ ████ █  █   ██ ████ ██                  ████  ████                   ██  ████ ██
  Begging 7   My PRs 3   Following 4   1 new
 ─── New activity 1 ────── since you last looked · x marks seen                          ┌ infra#88                           × ┐
 ▸● design infra#88      ● Move workers to spot node …    +96 −12  ◆2/5 blocked  20h · ○ │                                      │
 ─── My open PRs 2 ──────                                                                │         ████                         │
- ● stamp  infra#90        Pin terraform provider ver…    +22 −22  ◇0/1 ready     1d ✓ ✓ │       ████████                       │
+ ● stamp  infra#90        Pin terraform provider ver…    +22 −22  ◇0/1 ready     1d ✓ ✓ │        ██████                        │
  ○ ?      dispatch#1301   WIP: zone-aware batching      +410 −90     – draft     3h ◐ · │         ████          Design review  │
                                                                                         │         ████          needs a human  │
-                                                                                        │       ████  ██        design review  │
-                                                                                        │       ████  ██        asked by you · │
-                                                                                        │     ████      ██      20h            │
-                                                                                        │     ████      ████                   │
-                                                                                        │   ████          ██                   │
-                                                                                        │   ██    ██████  ██                   │
+                                                                                        │        ███  ██        design review  │
+                                                                                        │       ███    ██       asked by you · │
+                                                                                        │      ███      ██      20h            │
+                                                                                        │     ███        ███                   │
+                                                                                        │    ███          ██                   │
+                                                                                        │   ██    ███████  █                   │
                                                                                         │                                      │
                                                                                         │ “cost vs. eviction risk tradeoff”    │
                                                                                         │                                      │
@@ -136,24 +136,24 @@ people and teams you follow, grouped by author. On the begging board, `w`
 narrows it to PRs from people you follow.
 
 ```text
- ███  ███     ███  ████  ███  ███ ████ ███      ██████                        ██                          ████
- █  █ █  █    █  █ █    █    █    █    █  █     ██████     Rubber stamp   ██████████   AI review          ████     Design
- ███  ███     ███  ███  █ ██ █ ██ ███  ███        ██       1 PR         ██████████████ 2 PRs            ████  ██   1 PR
- █    █ █     █  █ █    █  █ █  █ █    █ █    ██████████   just approve   ██████████   bot reviews    ████    ████ humans think
- █    █  █    ███  ████  ███  ███ ████ █  █   ██████████                  ████  ████                  ██  ████  ██
+ ███  ███     ███  ████  ███  ███ ████ ███      ██████                        ██                         ████
+ █  █ █  █    █  █ █    █    █    █    █  █      ████      Rubber stamp   ██████████   AI review          ██       Design
+ ███  ███     ███  ███  █ ██ █ ██ ███  ███   ████████████  1 PR         ██████████████ 2 PRs             ██ ██     1 PR
+ █    █ █     █  █ █    █  █ █  █ █    █ █   ████████████  just approve   ██████████   bot reviews      ██    ██   humans think
+ █    █  █    ███  ████  ███  ███ ████ █  █   ██ ████ ██                  ████  ████                   ██  ████ ██
  Begging 7   My PRs 3   Following 4   1 new
 ─── dana 1 ──────                                                                       ┌ api#812                            × ┐
 ▸● stamp  api#812       Bump serde to 1.0.230 across workspace          +14 −14  1d ✓ ○ │                                      │
 ─── lior 1 ──────                                                                       │       ████████                       │
- ● ai     dispatch#1290 Add retry budget to the matcher client         +212 −40  2d ✓ ○ │     ████████████                     │
+ ● ai     dispatch#1290 Add retry budget to the matcher client         +212 −40  2d ✓ ○ │      ██████████                      │
 ─── maya 1 ──────                                                                       │       ████████        Rubber stamp   │
  ● ai     dispatch#1294 Typed config loader for routing service       +330 −120  8h ✗ ○ │         ████          mechanical     │
 ─── noa 1 ──────                                                                        │         ████          change,        │
- ● design billing#431   Split invoice ledger into events + projecti… +1840 −610  3d ✓ ✗ │     ████████████      approve as-is  │
-                                                                                        │   ████████████████    asked by dana  │
-                                                                                        │   ████████████████    · 1d           │
+ ● design billing#431   Split invoice ledger into events + projecti… +1840 −610  3d ✓ ✗ │   ████████████████    approve as-is  │
+                                                                                        │  ██████████████████   asked by dana  │
+                                                                                        │  ██████████████████   · 1d           │
                                                                                         │                                      │
-                                                                                        │   ██  ████  ██████                   │
+                                                                                        │  ██  ████  ██  ████                  │
                                                                                         │                                      │
                                                                                         │ “lockfile only”                      │
                                                                                         │                                      │
