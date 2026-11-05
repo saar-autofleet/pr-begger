@@ -81,22 +81,28 @@ pub enum Outcome {
     Missing,
 }
 
+/// Exact matching: every typed word must appear as a substring (in any
+/// order). fzf's default fuzzy mode matched letters scattered across a
+/// line, so `nested` hit "add readi*nes*sPa*t*h …". A word starting with `'`
+/// is still matched fuzzily, `^`/`$` anchor, `!` excludes.
+const ARGS: &[&str] = &[
+    "--exact",
+    "--delimiter=\t",
+    "--with-nth=2..",
+    "--layout=reverse",
+    "--border=rounded",
+    "--border-label= PR Begger · search ",
+    "--prompt=beg/ ",
+    "--pointer=▸",
+    "--header=words match exactly, any order · 'word fuzzy · !word exclude\nenter jump to it · ctrl-o open in browser · esc back",
+    "--expect=ctrl-o",
+    "--color=hl:#9480b8,hl+:#c8b6e2,pointer:#e292a8,prompt:#a7c7e7,border:#a096b4,label:#c8b6e2,header:#a096b4,info:#a096b4,marker:#aadebe",
+];
+
 /// Run fzf over `lines`. The caller must have released the terminal.
 pub fn run(lines: &[String]) -> std::io::Result<Outcome> {
     let child = Command::new("fzf")
-        .args([
-            "--delimiter=\t",
-            "--with-nth=2..",
-            "--tiebreak=index",
-            "--layout=reverse",
-            "--border=rounded",
-            "--border-label= PR Begger · search ",
-            "--prompt=beg/ ",
-            "--pointer=▸",
-            "--header=enter jump to it · ctrl-o open in browser · esc back",
-            "--expect=ctrl-o",
-            "--color=hl:#9480b8,hl+:#c8b6e2,pointer:#e292a8,prompt:#a7c7e7,border:#a096b4,label:#c8b6e2,header:#a096b4,info:#a096b4,marker:#aadebe",
-        ])
+        .args(ARGS)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn();
@@ -140,6 +146,12 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn matches_exactly_not_fuzzily() {
+        assert!(ARGS.contains(&"--exact"));
+        assert!(!ARGS.iter().any(|a| a.starts_with("--tiebreak=index")));
+    }
 
     #[test]
     fn parses_enter_and_ctrl_o() {

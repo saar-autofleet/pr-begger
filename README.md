@@ -253,8 +253,11 @@ monochrome too.
 ### Search
 
 `/` hands every PR on all three screens to `fzf` (installed separately:
-`brew install fzf`), so it searches with fzf's own matching: type part of a
-title, a PR number (`4202` or `#4202`), a repo, an author or a kind. `enter`
+`brew install fzf`), in exact mode: every word you type must appear in the line (in
+any order), so `nested` finds titles containing "nested" and nothing that
+merely has those letters scattered. Type part of a title, a PR number (`4202`
+or `#4202`), a repo, an author or a kind; prefix a word with `'` to match it
+fuzzily, or `!` to exclude it. `enter`
 jumps to the PR, switching screens and clearing filters that would hide it;
 `ctrl-o` opens it in the browser; `esc` goes back. Without fzf, `/` says how
 to install it.
