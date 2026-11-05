@@ -138,8 +138,13 @@ impl Client {
 
     /// Open PRs carrying a CR-kind marker, across every configured scope.
     pub fn fetch_board(&self, cfg: &Config) -> Result<Vec<Pr>> {
-        let prs = self.fetch(cfg, false, |scope| {
-            format!("is:pr is:open archived:false \"{SEARCH_TOKEN}\" in:comments {scope}")
+        let prs = self.fetch(cfg, false, |scope| match scope.strip_prefix("repo:") {
+            // A named repo is listed directly: no dependence on the search
+            // index, which can take minutes to pick up a new comment.
+            Some(repo) => Source::OpenPrs(repo.to_string()),
+            None => Source::Search(format!(
+                "is:pr is:open archived:false \"{SEARCH_TOKEN}\" in:comments {scope}"
+            )),
         })?;
         // The search matched the word; only a readable marker makes it a request.
         Ok(prs.into_iter().filter(|p| p.request.is_some()).collect())
@@ -148,7 +153,7 @@ impl Client {
     /// The viewer's own open PRs, with conversation activity.
     pub fn fetch_mine(&self, cfg: &Config) -> Result<Vec<Pr>> {
         self.fetch(cfg, true, |scope| {
-            format!("is:pr is:open archived:false author:@me {scope}")
+            Source::Search(format!("is:pr is:open archived:false author:@me {scope}"))
         })
     }
 
@@ -161,7 +166,7 @@ impl Client {
         &self,
         cfg: &Config,
         mine: bool,
-        query: impl Fn(&str) -> String + Sync,
+        query: impl Fn(&str) -> Source + Sync,
     ) -> Result<Vec<Pr>> {
         let ids = self.search_scopes(cfg, query)?;
         self.details(&ids, mine)
@@ -217,15 +222,18 @@ impl Client {
     fn search_scopes(
         &self,
         cfg: &Config,
-        query: impl Fn(&str) -> String + Sync,
+        query: impl Fn(&str) -> Source + Sync,
     ) -> Result<Vec<String>> {
         let scopes = cfg.scopes();
         let results: Vec<Result<Vec<String>>> = std::thread::scope(|s| {
             let handles: Vec<_> = scopes
                 .iter()
                 .map(|scope| {
-                    let q = query(scope);
-                    s.spawn(move || self.search(&q, cfg.max_prs))
+                    let source = query(scope);
+                    s.spawn(move || match source {
+                        Source::Search(q) => self.search(&q, cfg.max_prs),
+                        Source::OpenPrs(repo) => self.open_prs(&repo, cfg.max_prs),
+                    })
                 })
                 .collect();
             handles
@@ -243,6 +251,45 @@ impl Client {
                 if seen.insert(id.clone()) {
                     out.push(id);
                 }
+            }
+        }
+        Ok(out)
+    }
+
+    /// Ids of a repo's open PRs, newest first.
+    fn open_prs(&self, repo: &str, max: usize) -> Result<Vec<String>> {
+        let (owner, name) = repo
+            .split_once('/')
+            .ok_or_else(|| anyhow!("`{repo}` is not owner/name"))?;
+        let mut out = Vec::new();
+        let mut after: Option<String> = None;
+        loop {
+            let n = PAGE.min(max - out.len());
+            let v: Value = self.graphql(
+                OPEN_PRS_QUERY,
+                json!({ "o": owner, "r": name, "n": n, "after": after }),
+            )?;
+            let conn = v
+                .pointer("/repository/pullRequests")
+                .ok_or_else(|| anyhow!("{repo} not found (or no access)"))?;
+            if let Some(nodes) = conn.pointer("/nodes").and_then(Value::as_array) {
+                out.extend(
+                    nodes
+                        .iter()
+                        .filter_map(|n| n.pointer("/id").and_then(Value::as_str))
+                        .map(String::from),
+                );
+            }
+            let more = conn
+                .pointer("/pageInfo/hasNextPage")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            after = conn
+                .pointer("/pageInfo/endCursor")
+                .and_then(Value::as_str)
+                .map(String::from);
+            if !more || after.is_none() || out.len() >= max {
+                break;
             }
         }
         Ok(out)
@@ -350,6 +397,22 @@ query($q: String!, $n: Int!, $after: String) {
     nodes { ... on PullRequest { id } }
   }
 }"#;
+
+const OPEN_PRS_QUERY: &str = r#"
+query($o: String!, $r: String!, $n: Int!, $after: String) {
+  repository(owner: $o, name: $r) {
+    pullRequests(states: OPEN, first: $n, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
+      pageInfo { hasNextPage endCursor }
+      nodes { id }
+    }
+  }
+}"#;
+
+/// Where a scope's PR ids come from.
+enum Source {
+    Search(String),
+    OpenPrs(String),
+}
 
 const DETAIL_QUERY: &str = r#"
 query($ids: [ID!]!, $mine: Boolean!) {

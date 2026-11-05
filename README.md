@@ -174,6 +174,11 @@ for one run, e.g. `pr-begger --repo saar-autofleet/pr-begger`.
   word `pr-begger` in every request comment is what the search matches (the
   search index is not guaranteed to cover the hidden HTML comment). A match
   only counts if one of the PR's last 40 comments has a readable marker.
+  Repos named with `repos`/`--repo` skip the search: their open PRs are listed
+  directly, so new requests show up there immediately.
+- **Search lag.** GitHub's search index can take a few minutes to pick up a
+  new comment, so in an org-wide board someone else's brand-new request may
+  appear on a later refresh. Requests you make from the TUI show up at once.
 - **Fast.** The search asks for PR ids only. Everything a row shows (comments,
   CI rollup, review decision, mergeability, threads) is then fetched by id in
   small batches, up to 8 in parallel. GitHub resolves those nested fields one
@@ -193,8 +198,7 @@ for one run, e.g. `pr-begger --repo saar-autofleet/pr-begger`.
 - A marker older than a PR's last 40 comments is not seen. Asking again
   (which edits or posts a fresh comment) brings it back.
 - GitHub search returns at most 1000 results per query; `max_prs` caps it lower.
-- Search indexing lags a little, so a brand-new request from someone else can
-  take a minute to appear.
+- Org-wide boards depend on GitHub's search index (see "Search lag" above).
 
 ## Follow-ups (not in v1)
 
