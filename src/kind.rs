@@ -54,15 +54,6 @@ impl Kind {
         }
     }
 
-    /// Short fixed-width (5 cell) tag for list rows.
-    pub fn tag(self) -> &'static str {
-        match self {
-            Kind::RubberStamp => "STAMP",
-            Kind::Ai => " A.I ",
-            Kind::Design => "DSIGN",
-        }
-    }
-
     /// One-line explanation for the comment and the help screen.
     pub fn blurb(self) -> &'static str {
         match self {
@@ -121,12 +112,5 @@ mod tests {
         assert_eq!("agent".parse::<Kind>().unwrap(), Kind::Ai);
         assert_eq!(" Design ".parse::<Kind>().unwrap(), Kind::Design);
         assert!("lgtm".parse::<Kind>().is_err());
-    }
-
-    #[test]
-    fn tags_are_fixed_width() {
-        for k in Kind::ALL {
-            assert_eq!(k.tag().chars().count(), 5);
-        }
     }
 }

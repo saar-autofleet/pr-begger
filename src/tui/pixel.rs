@@ -1,8 +1,9 @@
-//! Pixel art: a retro palette, a 5px block font and kind sprites, drawn two
-//! pixels per terminal cell with half-block characters.
+//! Pixel art: a soft pastel palette, a 5px block font and kind sprites,
+//! drawn two pixels per terminal cell with half-block characters.
 //!
-//! Sprites sit on an opaque dark tile, so they look the same on dark and
-//! light terminals; text elsewhere uses the terminal's own colours.
+//! Sprites get a one-pixel dark outline, the way 90s icons did, so the
+//! pastels still read on light terminals; text elsewhere uses the terminal's
+//! own colours.
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -10,33 +11,29 @@ use ratatui::style::Color;
 
 use crate::kind::Kind;
 
-/// A 16-colour retro palette (the PICO-8 one; colours are not code, but
-/// credit where due: Lexaloffle's fantasy console made it famous).
+/// Pastels, plus an ink and an outline dark enough to sit under them.
 pub mod pal {
     use ratatui::style::Color;
-    pub const INK: Color = Color::Rgb(29, 43, 83);
-    pub const PLUM: Color = Color::Rgb(126, 37, 83);
-    pub const RUST: Color = Color::Rgb(171, 82, 54);
-    pub const SLATE: Color = Color::Rgb(95, 87, 79);
-    pub const SILVER: Color = Color::Rgb(194, 195, 199);
-    pub const CREAM: Color = Color::Rgb(255, 241, 232);
-    pub const RED: Color = Color::Rgb(255, 0, 77);
-    pub const ORANGE: Color = Color::Rgb(255, 163, 0);
-    pub const YELLOW: Color = Color::Rgb(255, 236, 39);
-    pub const GREEN: Color = Color::Rgb(0, 228, 54);
-    pub const BLUE: Color = Color::Rgb(41, 173, 255);
-    pub const LAVENDER: Color = Color::Rgb(131, 118, 156);
-    pub const PINK: Color = Color::Rgb(255, 119, 168);
-    pub const PEACH: Color = Color::Rgb(255, 204, 170);
-    pub const BLACK: Color = Color::Rgb(0, 0, 0);
+    pub const LILAC: Color = Color::Rgb(200, 182, 226);
+    pub const PINK: Color = Color::Rgb(244, 182, 194);
+    pub const ROSE: Color = Color::Rgb(226, 146, 168);
+    pub const PEACH: Color = Color::Rgb(255, 209, 170);
+    pub const BUTTER: Color = Color::Rgb(250, 227, 150);
+    pub const MINT: Color = Color::Rgb(170, 222, 190);
+    pub const SKY: Color = Color::Rgb(167, 199, 231);
+    pub const CREAM: Color = Color::Rgb(255, 248, 231);
+    pub const FADE: Color = Color::Rgb(160, 150, 180);
+    pub const OUTLINE: Color = Color::Rgb(92, 84, 112);
+    /// Text on pastel backgrounds.
+    pub const INK: Color = Color::Rgb(45, 40, 60);
 }
 
-/// Each kind's signature colour, used for chips, headers and borders.
+/// Each kind's signature pastel.
 pub fn kind_color(kind: Kind) -> Color {
     match kind {
-        Kind::RubberStamp => pal::GREEN,
-        Kind::Ai => pal::BLUE,
-        Kind::Design => pal::ORANGE,
+        Kind::RubberStamp => pal::MINT,
+        Kind::Ai => pal::SKY,
+        Kind::Design => pal::PEACH,
     }
 }
 
@@ -140,7 +137,7 @@ fn glyph(ch: char) -> &'static [&'static str; 5] {
 }
 
 /// Render `text` in the block font with a one-pixel drop shadow below and a
-/// sunset gradient, top to bottom.
+/// pastel gradient, top to bottom.
 pub fn banner(text: &str) -> Bitmap {
     let glyphs: Vec<_> = text.chars().map(glyph).collect();
     let width: usize = glyphs.iter().map(|g| g[0].len()).sum::<usize>() + glyphs.len();
@@ -160,7 +157,7 @@ pub fn banner(text: &str) -> Bitmap {
     for y in 0..5 {
         for x in 0..width {
             if face.get(x, y).is_some() {
-                out.set(x, y + 1, Some(pal::PLUM));
+                out.set(x, y + 1, Some(pal::OUTLINE));
             }
         }
     }
@@ -176,8 +173,8 @@ pub fn banner(text: &str) -> Bitmap {
 
 fn gradient(y: usize) -> Color {
     match y {
-        0 | 1 => pal::YELLOW,
-        2 => pal::ORANGE,
+        0 | 1 => pal::SKY,
+        2 => pal::LILAC,
         _ => pal::PINK,
     }
 }
@@ -215,27 +212,64 @@ const COMPASS: [&str; 8] = [
     "s......p", //
 ];
 
+const MINI_STAMP: [&str; 6] = [
+    ".hhhh.", //
+    "..hh..", //
+    "..hh..", //
+    ".rrrr.", //
+    "rRRRRr", //
+    "g.g.g.", //
+];
+
+const MINI_ROBOT: [&str; 6] = [
+    "..y...", //
+    ".bbbb.", //
+    "bwbbwb", //
+    "bbbbbb", //
+    ".bssb.", //
+    ".b..b.", //
+];
+
+const MINI_COMPASS: [&str; 6] = [
+    "..oo..", //
+    "..YY..", //
+    "..ll..", //
+    ".l..l.", //
+    ".l..l.", //
+    "s....p", //
+];
+
+const QUESTION: [&str; 8] = [
+    "..ssss..", //
+    ".ss..ss.", //
+    ".....ss.", //
+    "....ss..", //
+    "...ss...", //
+    "...ss...", //
+    "........", //
+    "...ss...", //
+];
+
 fn sprite_color(ch: char) -> Option<Color> {
     Some(match ch {
-        'h' => pal::RUST,
-        'H' => pal::PEACH,
-        'r' => pal::RED,
+        'h' => pal::PEACH,
+        'H' => pal::CREAM,
+        'r' => pal::ROSE,
         'R' => pal::PINK,
-        'g' => pal::GREEN,
-        'y' => pal::YELLOW,
-        's' => pal::SILVER,
-        'b' => pal::BLUE,
+        'g' => pal::MINT,
+        'y' => pal::BUTTER,
+        's' => pal::LILAC,
+        'b' => pal::SKY,
         'w' => pal::CREAM,
-        'o' => pal::ORANGE,
-        'Y' => pal::YELLOW,
-        'l' => pal::LAVENDER,
+        'o' => pal::PEACH,
+        'Y' => pal::BUTTER,
+        'l' => pal::LILAC,
         'p' => pal::PINK,
-        'k' => pal::BLACK,
         _ => return None,
     })
 }
 
-/// The kind's 8×8 sprite.
+/// The kind's 8×8 sprite, without outline.
 pub fn sprite(kind: Kind) -> Bitmap {
     let rows: &[&str] = match kind {
         Kind::RubberStamp => &STAMP,
@@ -245,55 +279,43 @@ pub fn sprite(kind: Kind) -> Bitmap {
     Bitmap::from_rows(rows, sprite_color)
 }
 
-/// A sprite on a 10×10 dark tile with a one-pixel frame in `frame`.
-/// Renders as 10 columns × 5 rows.
-pub fn tile(kind: Kind, frame: Color) -> Bitmap {
-    let s = sprite(kind);
-    let mut t = Bitmap::new(s.w + 2, s.h + 2);
-    for y in 0..t.h {
-        for x in 0..t.w {
-            let edge = x == 0 || y == 0 || x == t.w - 1 || y == t.h - 1;
-            t.set(x, y, Some(if edge { frame } else { pal::INK }));
-        }
-    }
-    for y in 0..s.h {
-        for x in 0..s.w {
-            if let Some(c) = s.get(x, y) {
-                t.set(x + 1, y + 1, Some(c));
+/// Surround every lit pixel with a one-pixel outline (4-neighbour), growing
+/// the bitmap by one pixel on each side.
+pub fn outlined(b: &Bitmap, color: Color) -> Bitmap {
+    let mut out = Bitmap::new(b.w + 2, b.h + 2);
+    for y in 0..out.h {
+        for x in 0..out.w {
+            let lit = |dx: isize, dy: isize| {
+                let (sx, sy) = (x as isize - 1 + dx, y as isize - 1 + dy);
+                sx >= 0 && sy >= 0 && b.get(sx as usize, sy as usize).is_some()
+            };
+            if lit(0, 0) {
+                out.set(x, y, b.get(x - 1, y - 1));
+            } else if lit(-1, 0) || lit(1, 0) || lit(0, -1) || lit(0, 1) {
+                out.set(x, y, Some(color));
             }
         }
     }
-    t
+    out
 }
 
-/// A "?" tile for PRs that never said what they need.
-pub fn unknown_tile(frame: Color) -> Bitmap {
-    let rows = [
-        "..ssss..", //
-        ".ss..ss.", //
-        ".....ss.", //
-        "....ss..", //
-        "...ss...", //
-        "...ss...", //
-        "........", //
-        "...ss...", //
-    ];
-    let s = Bitmap::from_rows(&rows, sprite_color);
-    let mut t = Bitmap::new(10, 10);
-    for y in 0..10 {
-        for x in 0..10 {
-            let edge = x == 0 || y == 0 || x == 9 || y == 9;
-            t.set(x, y, Some(if edge { frame } else { pal::INK }));
-        }
-    }
-    for y in 0..8 {
-        for x in 0..8 {
-            if let Some(c) = s.get(x, y) {
-                t.set(x + 1, y + 1, Some(c));
-            }
-        }
-    }
-    t
+/// Outlined 8×8 kind icon: 10 columns × 5 rows. `None` is the "?" icon.
+pub fn icon(kind: Option<Kind>) -> Bitmap {
+    let s = match kind {
+        Some(k) => sprite(k),
+        None => Bitmap::from_rows(&QUESTION, sprite_color),
+    };
+    outlined(&s, pal::OUTLINE)
+}
+
+/// Outlined 6×6 kind icon for the header: 8 columns × 4 rows.
+pub fn mini(kind: Kind) -> Bitmap {
+    let rows: &[&str] = match kind {
+        Kind::RubberStamp => &MINI_STAMP,
+        Kind::Ai => &MINI_ROBOT,
+        Kind::Design => &MINI_COMPASS,
+    };
+    outlined(&Bitmap::from_rows(rows, sprite_color), pal::OUTLINE)
 }
 
 #[cfg(test)]
@@ -305,14 +327,18 @@ mod tests {
         for k in Kind::ALL {
             let s = sprite(k);
             assert_eq!((s.w, s.h), (8, 8), "{k}");
-            assert_eq!(tile(k, pal::SLATE).cells(), (10, 5));
+            assert_eq!(icon(Some(k)).cells(), (10, 5));
+            assert_eq!(mini(k).cells(), (8, 4));
         }
     }
 
     #[test]
     fn sprite_rows_are_rectangular() {
-        for rows in [STAMP, ROBOT, COMPASS] {
+        for rows in [STAMP, ROBOT, COMPASS, QUESTION] {
             assert!(rows.iter().all(|r| r.chars().count() == 8));
+        }
+        for rows in [MINI_STAMP, MINI_ROBOT, MINI_COMPASS] {
+            assert!(rows.iter().all(|r| r.chars().count() == 6));
         }
     }
 
@@ -323,7 +349,7 @@ mod tests {
         for y in 0..b.h {
             let row: String = (0..b.w)
                 .map(|x| match b.get(x, y) {
-                    Some(pal::PLUM) => '+',
+                    Some(pal::OUTLINE) => '+',
                     Some(_) => '#',
                     None => '.',
                 })
@@ -342,8 +368,8 @@ mod tests {
     #[test]
     fn renders_half_blocks() {
         let b = Bitmap::from_rows(&["ab", "a."], |c| match c {
-            'a' => Some(pal::RED),
-            'b' => Some(pal::BLUE),
+            'a' => Some(pal::ROSE),
+            'b' => Some(pal::SKY),
             _ => None,
         });
         let area = Rect::new(0, 0, 2, 1);
@@ -351,7 +377,18 @@ mod tests {
         b.render(0, 0, area, &mut buf);
         assert_eq!(buf[(0, 0)].symbol(), "█");
         assert_eq!(buf[(1, 0)].symbol(), "▀");
-        assert_eq!(buf[(1, 0)].fg, pal::BLUE);
+        assert_eq!(buf[(1, 0)].fg, pal::SKY);
+    }
+
+    #[test]
+    fn outline_wraps_lit_pixels() {
+        let b = Bitmap::from_rows(&["#"], |_| Some(pal::MINT));
+        let o = outlined(&b, pal::OUTLINE);
+        assert_eq!((o.w, o.h), (3, 3));
+        assert_eq!(o.get(1, 1), Some(pal::MINT));
+        assert_eq!(o.get(0, 1), Some(pal::OUTLINE));
+        assert_eq!(o.get(1, 0), Some(pal::OUTLINE));
+        assert_eq!(o.get(0, 0), None, "corners stay clear (4-neighbour)");
     }
 
     #[test]

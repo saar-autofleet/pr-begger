@@ -13,7 +13,7 @@ use super::{App, Picker, Popup, Screen};
 use crate::kind::Kind;
 use crate::model::{age, Ci, Decision, Merge, Pr};
 
-const SPINNER: [&str; 4] = ["▖", "▘", "▝", "▗"];
+const SPINNER: [&str; 4] = ["|", "/", "-", "\\"];
 const DETAIL_MIN_WIDTH: u16 = 112;
 const DETAIL_WIDTH: u16 = 40;
 
@@ -53,20 +53,48 @@ fn rfit(s: &str, w: usize) -> String {
     }
 }
 
-fn chip(kind: Option<Kind>) -> Span<'static> {
+/// Small kind cue for a row: a pastel dot and the kind's short name.
+/// Always 9 cells.
+fn marker(kind: Option<Kind>) -> Vec<Span<'static>> {
     match kind {
-        Some(k) => Span::styled(
-            format!(" {} ", k.tag()),
-            Style::new().fg(pal::BLACK).bg(kind_color(k)).bold(),
-        ),
-        None => Span::styled("   ?   ", muted()),
+        Some(k) => vec![
+            Span::styled("● ", Style::new().fg(kind_color(k))),
+            Span::styled(fit(short(k), 7), muted()),
+        ],
+        None => vec![Span::styled(fit("○ ?", 9), muted())],
     }
+}
+
+fn short(k: Kind) -> &'static str {
+    match k {
+        Kind::RubberStamp => "stamp",
+        Kind::Ai => "ai",
+        Kind::Design => "design",
+    }
+}
+
+/// A Win95-style title bar: pastel bar, ink text, a close box on the right.
+fn title_bar(text: &str, width: u16, color: Color) -> Line<'static> {
+    let w = width.saturating_sub(2) as usize;
+    let right = " × ";
+    let left = fit(&format!(" {text}"), w.saturating_sub(right.width()));
+    Line::from(vec![
+        Span::styled(left, Style::new().fg(pal::INK).bg(color).bold()),
+        Span::styled(right, Style::new().fg(pal::INK).bg(color)),
+    ])
+}
+
+fn window(title: &str, width: u16, color: Color) -> Block<'static> {
+    Block::bordered()
+        .border_type(BorderType::Plain)
+        .border_style(muted())
+        .title(title_bar(title, width, color))
 }
 
 fn ci_span(ci: Ci) -> Span<'static> {
     match ci {
         Ci::Passing => Span::styled("✓", Style::new().fg(Color::Green)),
-        Ci::Failing => Span::styled("✗", Style::new().fg(Color::Red).bold()),
+        Ci::Failing => Span::styled("✗", Style::new().fg(Color::Red)),
         Ci::Running => Span::styled("◐", Style::new().fg(Color::Yellow)),
         Ci::None => Span::styled("·", muted()),
     }
@@ -75,7 +103,7 @@ fn ci_span(ci: Ci) -> Span<'static> {
 fn review_span(pr: &Pr) -> Span<'static> {
     match pr.review.decision {
         Decision::Approved => Span::styled("✓", Style::new().fg(Color::Green)),
-        Decision::ChangesRequested => Span::styled("✗", Style::new().fg(Color::Red).bold()),
+        Decision::ChangesRequested => Span::styled("✗", Style::new().fg(Color::Red)),
         Decision::Required => Span::styled("○", Style::new().fg(Color::Yellow)),
         Decision::None if pr.review.approvals > 0 => {
             Span::styled("✓", Style::new().fg(Color::Green))
@@ -90,10 +118,10 @@ fn review_span(pr: &Pr) -> Span<'static> {
 fn merge_span(m: Merge, w: usize) -> Span<'static> {
     let (word, style) = match m {
         Merge::Ready => ("ready", Style::new().fg(Color::Green)),
-        Merge::Conflict => ("conflict", Style::new().fg(Color::Red).bold()),
-        Merge::Behind => ("behind", Style::new().fg(Color::Yellow)),
+        Merge::Conflict => ("conflict", Style::new().fg(Color::Red)),
+        Merge::Behind => ("behind", muted()),
         Merge::Blocked => ("blocked", muted()),
-        Merge::Unstable => ("unstable", Style::new().fg(Color::Yellow)),
+        Merge::Unstable => ("unstable", muted()),
         Merge::Draft => ("draft", muted()),
         Merge::Unknown => ("…", muted()),
     };
@@ -109,7 +137,7 @@ pub fn draw(f: &mut Frame, app: &mut App) -> usize {
     }
     let tall = area.height >= 18 && area.width >= 52;
     let [head, body, foot] = Layout::vertical([
-        Constraint::Length(if tall { 5 } else { 1 }),
+        Constraint::Length(if tall { 4 } else { 1 }),
         Constraint::Min(1),
         Constraint::Length(1),
     ])
@@ -147,49 +175,51 @@ fn tabs(app: &App) -> Line<'static> {
     let new = app.new_keys.len();
     let tab = |label: String, on: bool| {
         if on {
-            Span::styled(label, Style::new().fg(pal::BLACK).bg(pal::YELLOW).bold())
+            Span::styled(label, Style::new().fg(pal::INK).bg(pal::LILAC).bold())
         } else {
             Span::styled(label, muted())
         }
     };
     let mut spans = vec![
         tab(
-            format!(" 1 BEGGING {} ", app.board.len()),
+            format!(" Begging {} ", app.board.len()),
             app.screen == Screen::Board,
         ),
         Span::raw(" "),
         tab(
-            format!(" 2 MY PRS {} ", app.mine.len()),
+            format!(" My PRs {} ", app.mine.len()),
             app.screen == Screen::Mine,
         ),
     ];
     if new > 0 {
+        spans.push(Span::raw(" "));
         spans.push(Span::styled(
-            format!(" ●{new} new"),
-            Style::new().fg(Color::Yellow).bold(),
+            format!(" {new} new "),
+            Style::new().fg(pal::INK).bg(pal::PINK),
         ));
     }
     if let Some(k) = app.filter {
-        spans.push(Span::raw("  filter "));
-        spans.push(chip(Some(k)));
+        spans.push(Span::styled("  only ", muted()));
+        spans.extend(marker(Some(k)));
     }
     Line::from(spans)
 }
 
+/// Right side of the status bar: fetch state, freshness, scope.
 fn status_line(app: &App) -> Line<'static> {
     let now = Utc::now();
     let at = match app.screen {
         Screen::Board => app.board_at,
         Screen::Mine => app.mine_at,
     };
-    let mut spans = vec![Span::raw(" ")];
+    let mut spans = Vec::new();
     if app.loading() {
         spans.push(Span::styled(
             format!(
-                "{} fetching ",
+                "{} fetching · ",
                 SPINNER[(app.tick / 3) as usize % SPINNER.len()]
             ),
-            Style::new().fg(Color::Yellow),
+            muted(),
         ));
     }
     spans.push(Span::styled(
@@ -200,7 +230,7 @@ fn status_line(app: &App) -> Line<'static> {
         },
         muted(),
     ));
-    spans.push(Span::styled(app.scope_label(), muted()));
+    spans.push(Span::styled(format!("{} ", app.scope_label()), muted()));
     Line::from(spans)
 }
 
@@ -211,76 +241,53 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
     let [left, right] =
         Layout::horizontal([Constraint::Length(left_w), Constraint::Min(0)]).areas(area);
     banner.render(left.x + 1, left.y, left, f.buffer_mut());
-    let [_, tabs_row, status_row] = Layout::vertical([
-        Constraint::Length(3),
-        Constraint::Length(1),
-        Constraint::Length(1),
-    ])
-    .areas(left);
-    // tabs and status may run past the banner column into the tile area only
-    // when there are no tiles; give them the full width and let tiles overdraw.
-    let wide = |r: Rect| Rect {
-        width: area.width,
-        ..r
-    };
-    f.render_widget(Paragraph::new(tabs(app)), wide(tabs_row));
-    f.render_widget(Paragraph::new(status_line(app)), wide(status_row));
-
-    draw_tiles(f, app, right);
+    let tabs_row = Rect::new(area.x, area.y + 3, area.width, 1);
+    f.render_widget(Paragraph::new(tabs(app)), tabs_row);
+    draw_legend(f, app, right);
 }
 
 fn draw_compact_header(f: &mut Frame, app: &App, area: Rect) {
-    let mut spans = vec![Span::styled(
-        "▙▟ PR BEGGER ",
-        Style::new().fg(pal::ORANGE).bold(),
-    )];
+    let mut spans = vec![
+        Span::styled(" PR Begger ", Style::new().fg(pal::INK).bg(pal::SKY).bold()),
+        Span::raw(" "),
+    ];
     spans.extend(tabs(app).spans);
     f.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
-/// One sprite tile per kind with its count; the active filter is lit, the
-/// others dim while a filter is on.
-fn draw_tiles(f: &mut Frame, app: &App, area: Rect) {
-    const TILE_W: u16 = 24;
-    if area.width < TILE_W * 3 {
+/// A small icon per kind with its count, like a 90s desktop shortcut row.
+/// With a filter on, the other kinds fade.
+fn draw_legend(f: &mut Frame, app: &App, area: Rect) {
+    const ENTRY_W: u16 = 22;
+    if area.width < ENTRY_W * 3 || area.height < 4 {
         return;
     }
     let list = match app.screen {
         Screen::Board => &app.board,
         Screen::Mine => &app.mine,
     };
-    // Clear the tile region (tabs/status were drawn full width underneath).
-    f.render_widget(Clear, area);
+    // icons are 4 rows: they may use the tab row, which is empty this far right
+    // right-aligned, so a long tab row (new count, filter) does not run into it
+    let w = ENTRY_W * 3;
+    let area = Rect::new(area.right() - w, area.y, w, area.height.min(4));
     for (i, k) in Kind::ALL.into_iter().enumerate() {
-        let x = area.x + i as u16 * TILE_W;
-        let r = Rect::new(x, area.y, TILE_W.min(area.right() - x), area.height);
-        let lit = app.filter == Some(k);
-        let dim = app.filter.is_some() && !lit;
-        let frame = if lit {
-            pal::YELLOW
-        } else if dim {
-            pal::SLATE
-        } else {
-            kind_color(k)
-        };
-        pixel::tile(k, frame).render(r.x, r.y, r, f.buffer_mut());
+        let x = area.x + i as u16 * ENTRY_W;
+        let r = Rect::new(x, area.y, ENTRY_W.min(area.right() - x), area.height);
+        let faded = app.filter.is_some_and(|fk| fk != k);
+        if !faded {
+            pixel::mini(k).render(r.x, r.y, r, f.buffer_mut());
+        }
         let count = list.iter().filter(|p| p.kind() == Some(k)).count();
-        let name_style = if dim {
-            muted()
-        } else {
-            Style::new().fg(kind_color(k)).bold()
+        let name = match k {
+            Kind::RubberStamp => "Rubber stamp",
+            Kind::Ai => "AI review",
+            Kind::Design => "Design",
         };
+        let style = if faded { muted() } else { Style::new() };
         let text = vec![
-            Line::from(Span::styled(
-                match k {
-                    Kind::RubberStamp => "RUBBER STAMP",
-                    Kind::Ai => "AI REVIEW",
-                    Kind::Design => "DESIGN",
-                },
-                name_style,
-            )),
+            Line::from(Span::styled(name, style)),
             Line::from(vec![
-                Span::styled(format!("{count}"), Style::new().bold()),
+                Span::styled(format!("{count}"), style.bold()),
                 Span::styled(if count == 1 { " PR" } else { " PRs" }, muted()),
             ]),
             Line::from(Span::styled(
@@ -292,7 +299,7 @@ fn draw_tiles(f: &mut Frame, app: &App, area: Rect) {
                 muted(),
             )),
         ];
-        let tr = Rect::new(r.x + 11, r.y + 1, r.width.saturating_sub(11), 3);
+        let tr = Rect::new(r.x + 9, r.y, r.width.saturating_sub(9), 3);
         f.render_widget(Paragraph::new(text), tr);
     }
 }
@@ -316,13 +323,13 @@ fn columns(app: &App, items: &[&Pr], width: usize) -> Cols {
         .max()
         .unwrap_or(6)
         .clamp(6, 24);
-    // mark + chip + gaps + age + ci + review
-    let mut fixed = 1 + 7 + 1 + repo + 1 + 1 + 4 + 1 + 1 + 1 + 1;
+    // mark + marker + repo + gap + age + ci + review
+    let mut fixed = 1 + 9 + repo + 1 + 1 + 4 + 1 + 1 + 1 + 1;
     let mut author = 0;
     let mut size = 0;
     match app.screen {
         Screen::Board => {
-            for (col, w) in [(&mut size, 11usize), (&mut author, 13usize)] {
+            for (col, w) in [(&mut size, 11usize), (&mut author, 12usize)] {
                 if width.saturating_sub(fixed + w) >= 24 {
                     *col = w;
                     fixed += w;
@@ -346,45 +353,46 @@ fn columns(app: &App, items: &[&Pr], width: usize) -> Cols {
     }
 }
 
+/// A thin rule with the group's name: `── Rubber stamp 3 ───── blurb`.
 fn group_header(kind: Option<Kind>, count: usize, width: usize) -> Line<'static> {
     let (label, blurb, color) = match kind {
-        Some(k) => (k.label().to_uppercase(), k.blurb(), kind_color(k)),
-        None => (
-            "NO KIND YET".into(),
-            "matched the search, no readable request",
-            pal::LAVENDER,
-        ),
+        Some(k) => (k.label(), k.blurb(), kind_color(k)),
+        None => ("No kind yet", "no readable request", pal::FADE),
     };
-    let head = format!(" ▚▞ {label} · {count} ");
-    let tail = format!(" {blurb} ");
-    let rule = width.saturating_sub(head.width() + tail.width() + 1);
+    rule_line(label, count, blurb, color, width)
+}
+
+fn rule_line(label: &str, count: usize, note: &str, color: Color, width: usize) -> Line<'static> {
+    let head = format!(" {label} ");
+    let num = format!("{count} ");
+    let note = if note.is_empty() {
+        String::new()
+    } else {
+        format!(" {note}")
+    };
+    let used = 3 + head.width() + num.width() + note.width();
+    let fill = width.saturating_sub(used).min(6);
     Line::from(vec![
-        Span::styled(head, Style::new().fg(pal::BLACK).bg(color).bold()),
-        Span::styled("▔".repeat(rule.min(4)), Style::new().fg(color)),
-        Span::styled(tail, muted()),
+        Span::styled("───", Style::new().fg(color)),
+        Span::styled(head, Style::new().bold()),
+        Span::styled(num, muted()),
+        Span::styled("─".repeat(fill), Style::new().fg(color)),
+        Span::styled(note, muted()),
     ])
 }
 
-fn mine_header(new: bool, count: usize) -> Line<'static> {
-    let (label, color) = if new {
-        ("● NEW ACTIVITY", pal::YELLOW)
+fn mine_header(new: bool, count: usize, width: usize) -> Line<'static> {
+    if new {
+        rule_line(
+            "New activity",
+            count,
+            "since you last looked · x marks seen",
+            pal::PINK,
+            width,
+        )
     } else {
-        ("MY OPEN PRS", pal::LAVENDER)
-    };
-    Line::from(vec![
-        Span::styled(
-            format!(" ▚▞ {label} · {count} "),
-            Style::new().fg(pal::BLACK).bg(color).bold(),
-        ),
-        Span::styled(
-            if new {
-                "  new since you last looked · x marks seen"
-            } else {
-                ""
-            },
-            muted(),
-        ),
-    ])
+        rule_line("My open PRs", count, "", pal::FADE, width)
+    }
 }
 
 fn rows<'a>(app: &'a App, items: &[&'a Pr], width: usize) -> Vec<Row<'a>> {
@@ -410,7 +418,7 @@ fn rows<'a>(app: &'a App, items: &[&'a Pr], width: usize) -> Vec<Row<'a>> {
                         .iter()
                         .filter(|p| app.new_keys.contains(&p.key()) == new)
                         .count();
-                    out.push(Row::Header(mine_header(new, n)));
+                    out.push(Row::Header(mine_header(new, n, width)));
                     last = Some(new);
                 }
                 out.push(Row::Item(i, pr));
@@ -422,53 +430,43 @@ fn rows<'a>(app: &'a App, items: &[&'a Pr], width: usize) -> Vec<Row<'a>> {
 
 fn item_line(app: &App, pr: &Pr, cols: &Cols, selected: bool) -> Line<'static> {
     let now = Utc::now();
-    let accent = pr.kind().map_or(pal::LAVENDER, kind_color);
-    let mut spans = vec![
-        Span::styled(if selected { "▌" } else { " " }, Style::new().fg(accent)),
-        chip(pr.kind()),
-        Span::raw(" "),
-        Span::styled(
-            fit(&format!("{}#{}", pr.short_repo(), pr.number), cols.repo),
-            Style::new().fg(Color::Cyan),
-        ),
-        Span::raw(" "),
-    ];
-    let mut title_style = if pr.draft { muted() } else { Style::new() };
-    if selected {
-        title_style = title_style.bold();
-    }
+    let mut spans = vec![Span::raw(if selected { "▸" } else { " " })];
+    spans.extend(marker(pr.kind()));
+    spans.push(Span::styled(
+        fit(&format!("{}#{}", pr.short_repo(), pr.number), cols.repo),
+        muted(),
+    ));
+    spans.push(Span::raw(" "));
+    let title_style = if pr.draft { muted() } else { Style::new() };
     if app.screen == Screen::Mine {
         let new = app.new_keys.contains(&pr.key());
         spans.push(Span::styled(
             if new { "● " } else { "  " },
-            Style::new().fg(Color::Yellow).bold(),
+            Style::new().fg(pal::ROSE),
         ));
     }
     spans.push(Span::styled(fit(&pr.title, cols.title), title_style));
     if cols.author > 0 {
         spans.push(Span::styled(
-            fit(&format!(" @{}", pr.author), cols.author),
-            Style::new().fg(Color::Magenta),
+            fit(&format!(" {}", pr.author), cols.author),
+            muted(),
         ));
     }
     if cols.size > 0 {
-        let add = format!("+{}", pr.additions);
-        let del = format!("-{}", pr.deletions);
-        let pad = cols.size.saturating_sub(add.width() + del.width() + 1);
-        spans.push(Span::raw(" ".repeat(pad)));
-        spans.push(Span::styled(add, Style::new().fg(Color::Green)));
-        spans.push(Span::raw(" "));
-        spans.push(Span::styled(del, Style::new().fg(Color::Red)));
+        spans.push(Span::styled(
+            rfit(&format!("+{} −{}", pr.additions, pr.deletions), cols.size),
+            muted(),
+        ));
     }
     if app.screen == Screen::Mine {
         let a = pr.activity.clone().unwrap_or_default();
         let threads = if a.total_threads == 0 {
             Span::styled(rfit("–", 6), muted())
         } else if a.unresolved_threads > 0 {
-            Span::styled(
-                rfit(&format!("◆{}/{}", a.unresolved_threads, a.total_threads), 6),
-                Style::new().fg(Color::Yellow).bold(),
-            )
+            Span::raw(rfit(
+                &format!("◆{}/{}", a.unresolved_threads, a.total_threads),
+                6,
+            ))
         } else {
             Span::styled(rfit(&format!("◇0/{}", a.total_threads), 6), muted())
         };
@@ -483,7 +481,8 @@ fn item_line(app: &App, pr: &Pr, cols: &Cols, selected: bool) -> Line<'static> {
     spans.push(review_span(pr));
     let mut line = Line::from(spans);
     if selected {
-        line = line.style(Style::new().bg(Color::DarkGray));
+        // the classic highlight bar, in lilac instead of navy
+        line = line.style(Style::new().fg(pal::INK).bg(pal::LILAC));
     }
     line
 }
@@ -498,7 +497,7 @@ fn draw_list(f: &mut Frame, app: &App, area: Rect) -> (usize, usize) {
                     "  {} asking GitHub who is begging…",
                     SPINNER[(app.tick / 3) as usize % 4]
                 ),
-                Style::new().fg(Color::Yellow),
+                muted(),
             ))]
         } else if app.filter.is_some() {
             vec![Line::from(Span::styled(
@@ -560,56 +559,43 @@ fn draw_list(f: &mut Frame, app: &App, area: Rect) -> (usize, usize) {
 
 fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
     let Some(pr) = app.selected() else {
-        let block = Block::bordered()
-            .border_type(BorderType::QuadrantOutside)
-            .border_style(Style::new().fg(pal::SLATE));
-        f.render_widget(block, area);
+        f.render_widget(window("", area.width, pal::FADE), area);
         return;
     };
     let now = Utc::now();
-    let color = pr.kind().map_or(pal::LAVENDER, kind_color);
-    let block = Block::bordered()
-        .border_type(BorderType::QuadrantOutside)
-        .border_style(Style::new().fg(color))
-        .title(Span::styled(
-            format!(" {}#{} ", pr.short_repo(), pr.number),
-            Style::new().fg(pal::BLACK).bg(color).bold(),
-        ));
+    let color = pr.kind().map_or(pal::FADE, kind_color);
+    let block = window(
+        &format!("{}#{}", pr.short_repo(), pr.number),
+        area.width,
+        color,
+    );
     let inner = block.inner(area);
     f.render_widget(block, area);
-    if inner.height < 6 || inner.width < 20 {
+    if inner.height < 7 || inner.width < 20 {
         return;
     }
 
-    let tile = match pr.kind() {
-        Some(k) => pixel::tile(k, color),
-        None => pixel::unknown_tile(color),
-    };
-    tile.render(inner.x + 1, inner.y, inner, f.buffer_mut());
-    let side = Rect::new(inner.x + 12, inner.y, inner.width.saturating_sub(12), 5);
+    pixel::icon(pr.kind()).render(inner.x + 1, inner.y + 1, inner, f.buffer_mut());
+    let side = Rect::new(inner.x + 12, inner.y + 1, inner.width.saturating_sub(13), 5);
     let mut head = vec![];
     match &pr.request {
         Some(r) => {
             head.push(Line::from(Span::styled(
-                r.kind.label().to_uppercase(),
-                Style::new().fg(color).bold(),
+                r.kind.label(),
+                Style::new().bold(),
             )));
             head.push(Line::from(Span::styled(r.kind.blurb(), muted())));
             head.push(Line::from(Span::styled(
                 format!(
-                    "by {} · {}",
-                    r.by.as_deref()
-                        .map_or("you".to_string(), |b| format!("@{b}")),
+                    "asked by {} · {}",
+                    r.by.as_deref().unwrap_or("you"),
                     age(r.at, now)
                 ),
                 muted(),
             )));
         }
         None => {
-            head.push(Line::from(Span::styled(
-                "NO KIND YET",
-                Style::new().fg(color).bold(),
-            )));
+            head.push(Line::from(Span::styled("No kind yet", Style::new().bold())));
             head.push(Line::from(Span::styled("press c to beg for one", muted())));
         }
     }
@@ -617,9 +603,9 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
 
     let body_area = Rect::new(
         inner.x + 1,
-        inner.y + 6,
+        inner.y + 7,
         inner.width.saturating_sub(2),
-        inner.height.saturating_sub(6),
+        inner.height.saturating_sub(7),
     );
     let mut lines = Vec::new();
     if let Some(why) = pr.request.as_ref().and_then(|r| r.why.as_deref()) {
@@ -633,34 +619,21 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
         pr.title.clone(),
         Style::new().bold(),
     )));
-    lines.push(Line::from(Span::styled(
-        pr.repo.clone(),
-        Style::new().fg(Color::Cyan),
-    )));
+    lines.push(Line::from(Span::styled(pr.repo.clone(), muted())));
     lines.push(Line::from(""));
     let kv = |k: &str, v: Vec<Span<'static>>| {
         let mut s = vec![Span::styled(format!("{k:<9}"), muted())];
         s.extend(v);
         Line::from(s)
     };
-    lines.push(kv(
-        "author",
-        vec![Span::styled(
-            format!("@{}", pr.author),
-            Style::new().fg(Color::Magenta),
-        )],
-    ));
+    lines.push(kv("author", vec![Span::raw(pr.author.clone())]));
     lines.push(kv(
         "opened",
         vec![Span::raw(format!("{} ago", age(pr.created_at, now)))],
     ));
     lines.push(kv(
         "size",
-        vec![
-            Span::styled(format!("+{}", pr.additions), Style::new().fg(Color::Green)),
-            Span::raw(" "),
-            Span::styled(format!("-{}", pr.deletions), Style::new().fg(Color::Red)),
-        ],
+        vec![Span::raw(format!("+{} −{}", pr.additions, pr.deletions))],
     ));
     lines.push(kv(
         "ci",
@@ -687,7 +660,7 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
                 vec![
                     Span::raw(format!("{} ago", age(t, now))),
                     if new {
-                        Span::styled("  ● NEW", Style::new().fg(Color::Yellow).bold())
+                        Span::styled("  ● new", Style::new().fg(pal::ROSE))
                     } else {
                         Span::raw("")
                     },
@@ -705,33 +678,39 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), body_area);
 }
 
+/// The status bar: keys (or the latest message) left, freshness right.
 fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
+    let right = status_line(app);
+    // the freshness note only fits beside the keys on wide terminals
+    let rw = if area.width >= 110 {
+        right.width() as u16
+    } else {
+        0
+    };
+    let [left_area, right_area] =
+        Layout::horizontal([Constraint::Min(0), Constraint::Length(rw)]).areas(area);
+    f.render_widget(Paragraph::new(right).right_aligned(), right_area);
     if let Some(s) = &app.status {
         let style = if s.error {
-            Style::new().fg(Color::Red).bold()
+            Style::new().fg(Color::Red)
         } else {
-            Style::new().fg(Color::Green)
+            Style::new()
         };
         f.render_widget(
             Paragraph::new(Line::from(Span::styled(format!(" {}", s.text), style))),
-            area,
+            left_area,
         );
         return;
     }
-    let key = |k: &str| {
-        Span::styled(
-            format!(" {k} "),
-            Style::new().fg(pal::BLACK).bg(pal::SILVER),
-        )
-    };
-    let txt = |t: &str| Span::styled(format!(" {t}  "), muted());
+    let key = |k: &str| Span::styled(format!(" {k}"), Style::new().bold());
+    let txt = |t: &str| Span::styled(format!(" {t} "), muted());
     let mut spans = vec![
         key("↑↓"),
         txt("move"),
         key("⏎"),
         txt("open"),
         key("c"),
-        txt("beg/change kind"),
+        txt("beg"),
         key("f"),
         txt("filter"),
         key("tab"),
@@ -748,7 +727,7 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
         key("q"),
         txt("quit"),
     ]);
-    f.render_widget(Paragraph::new(Line::from(spans)), area);
+    f.render_widget(Paragraph::new(Line::from(spans)), left_area);
 }
 
 fn centered(area: Rect, w: u16, h: u16) -> Rect {
@@ -765,13 +744,7 @@ fn centered(area: Rect, w: u16, h: u16) -> Rect {
 fn draw_help(f: &mut Frame, area: Rect) {
     let r = centered(area, 66, 26);
     f.render_widget(Clear, r);
-    let block = Block::bordered()
-        .border_type(BorderType::QuadrantOutside)
-        .border_style(Style::new().fg(pal::YELLOW))
-        .title(Span::styled(
-            " HELP ",
-            Style::new().fg(pal::BLACK).bg(pal::YELLOW).bold(),
-        ));
+    let block = window("Help", r.width, pal::LILAC);
     let k = |key: &str, what: &str| {
         Line::from(vec![
             Span::styled(format!("  {key:<14}"), Style::new().bold()),
@@ -791,11 +764,10 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from(""),
     ];
     for kind in Kind::ALL {
-        lines.push(Line::from(vec![
-            Span::raw("  "),
-            chip(Some(kind)),
-            Span::raw(format!(" {} — {}", kind.label(), kind.blurb())),
-        ]));
+        let mut l = vec![Span::raw("  ")];
+        l.extend(marker(Some(kind)));
+        l.push(Span::raw(format!(" {} — {}", kind.label(), kind.blurb())));
+        lines.push(Line::from(l));
     }
     lines.push(Line::from(""));
     lines.push(Line::from(vec![
@@ -820,9 +792,9 @@ fn draw_help(f: &mut Frame, area: Rect) {
     ]));
     lines.push(Line::from(vec![
         Span::raw("  threads "),
-        Span::styled("◆2/5", Style::new().fg(Color::Yellow).bold()),
+        Span::raw("◆2/5"),
         Span::raw(" unresolved/total   "),
-        Span::styled("●", Style::new().fg(Color::Yellow).bold()),
+        Span::styled("●", Style::new().fg(pal::ROSE)),
         Span::raw(" new since last look"),
     ]));
     lines.push(Line::from(""));
@@ -831,54 +803,36 @@ fn draw_help(f: &mut Frame, area: Rect) {
 }
 
 fn draw_picker(f: &mut Frame, p: &Picker, area: Rect) {
-    let r = centered(area, 70, 15);
+    let r = centered(area, 70, 16);
     f.render_widget(Clear, r);
     let kind = Kind::ALL[p.choice];
-    let block = Block::bordered()
-        .border_type(BorderType::QuadrantOutside)
-        .border_style(Style::new().fg(kind_color(kind)))
-        .title(Span::styled(
-            " BEG FOR A REVIEW ",
-            Style::new().fg(pal::BLACK).bg(kind_color(kind)).bold(),
-        ));
+    let block = window("Beg for a review", r.width, kind_color(kind));
     let inner = block.inner(r);
     f.render_widget(block, r);
     let mut lines = vec![
         Line::from(vec![
-            Span::styled(format!("{} ", p.pr.key()), Style::new().fg(Color::Cyan)),
+            Span::styled(format!("{} ", p.pr.key()), muted()),
             Span::styled(p.pr.title.clone(), Style::new().bold()),
         ]),
         Line::from(""),
     ];
     for (i, k) in Kind::ALL.into_iter().enumerate() {
         let on = i == p.choice;
-        lines.push(Line::from(vec![
-            Span::styled(
-                if on { " ▶ " } else { "   " },
-                Style::new().fg(kind_color(k)).bold(),
-            ),
-            chip(Some(k)),
-            Span::styled(
-                format!(" {:<14}", k.label()),
-                if on {
-                    Style::new().bold()
-                } else {
-                    Style::new()
-                },
-            ),
-            Span::styled(k.blurb(), muted()),
-        ]));
+        let mut l = vec![Span::raw(if on { " ▸ " } else { "   " })];
+        l.extend(marker(Some(k)));
+        l.push(Span::raw(format!(" {:<14}", k.label())));
+        l.push(Span::styled(k.blurb(), muted()));
+        let mut line = Line::from(l);
+        if on {
+            line = line.style(Style::new().fg(pal::INK).bg(pal::LILAC));
+        }
+        lines.push(line);
     }
     lines.push(Line::from(""));
     lines.push(Line::from(vec![
         Span::styled(" why: ", muted()),
         Span::raw(p.why.clone()),
-        Span::styled(
-            "▏",
-            Style::new()
-                .fg(kind_color(kind))
-                .add_modifier(Modifier::SLOW_BLINK),
-        ),
+        Span::styled("▏", Style::new().add_modifier(Modifier::SLOW_BLINK)),
     ]));
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
@@ -891,9 +845,9 @@ fn draw_picker(f: &mut Frame, p: &Picker, area: Rect) {
     )));
     let text_area = Rect::new(
         inner.x + 1,
-        inner.y,
+        inner.y + 1,
         inner.width.saturating_sub(2),
-        inner.height,
+        inner.height.saturating_sub(1),
     );
     f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), text_area);
 }
