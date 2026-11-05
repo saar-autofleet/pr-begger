@@ -1161,7 +1161,7 @@ mod screens {
         }
         app.follows.add(&Who::Team {
             org: "acme".into(),
-            slug: "dev-ordering".into(),
+            slug: "your-team".into(),
         });
         app.on_msg(Msg::Following(Ok((
             prs.iter()
@@ -1176,7 +1176,7 @@ mod screens {
             if popup && screen == Screen::Following {
                 app.popup = Some(Popup::Follows(FollowEditor {
                     cursor: 1,
-                    input: Some("galinareznikk".into()),
+                    input: Some("carol".into()),
                     checking: false,
                 }));
             }

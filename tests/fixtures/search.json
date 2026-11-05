@@ -90,7 +90,7 @@
           "updatedAt": "2026-11-05T09:00:00Z",
           "additions": 3,
           "deletions": 3,
-          "author": { "__typename": "User", "login": "saar" },
+          "author": { "__typename": "User", "login": "erin" },
           "repository": { "nameWithOwner": "Autofleet/web" },
           "reviewDecision": "APPROVED",
           "mergeable": "MERGEABLE",
@@ -110,7 +110,7 @@
                 "body": "<!-- pr-begger: {\"v\":1,\"kind\":\"rubber-stamp\"} -->\n🟩 **CR kind: Rubber stamp**",
                 "createdAt": "2026-11-03T07:01:00Z",
                 "lastEditedAt": null,
-                "author": { "__typename": "User", "login": "saar" }
+                "author": { "__typename": "User", "login": "erin" }
               },
               {
                 "id": "IC_6",
@@ -130,7 +130,7 @@
               },
               {
                 "isResolved": true,
-                "comments": { "nodes": [ { "createdAt": "2026-11-05T09:00:00Z", "author": { "__typename": "User", "login": "saar" } } ] }
+                "comments": { "nodes": [ { "createdAt": "2026-11-05T09:00:00Z", "author": { "__typename": "User", "login": "erin" } } ] }
               }
             ]
           }

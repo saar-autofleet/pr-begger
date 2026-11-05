@@ -1,8 +1,8 @@
 //! People and teams you follow, kept in `follow.toml` next to the config.
 //!
 //! ```toml
-//! users = ["omril1", "galinareznikk"]
-//! teams = ["Autofleet/dev-ordering"]
+//! users = ["alice", "carol"]
+//! teams = ["your-org/your-team"]
 //! ```
 //!
 //! Edited by `pr-begger follow` / `unfollow` and the TUI, or by hand.
@@ -59,7 +59,7 @@ impl Who {
                     org: org.to_string(),
                     slug: slug.to_string(),
                 },
-                None => bail!("`{raw}`: say which org, like Autofleet/{slug}"),
+                None => bail!("`{raw}`: say which org, like your-org/{slug}"),
             },
             [org, slug] => Who::Team {
                 org: org.to_string(),
@@ -190,30 +190,27 @@ mod tests {
 
     #[test]
     fn parses_users_and_teams() {
-        let org = Some("Autofleet");
+        let org = Some("your-org");
+        assert_eq!(Who::parse("alice", org).unwrap(), Who::User("alice".into()));
         assert_eq!(
-            Who::parse("omril1", org).unwrap(),
-            Who::User("omril1".into())
+            Who::parse("@alice", org).unwrap(),
+            Who::User("alice".into())
         );
         assert_eq!(
-            Who::parse("@omril1", org).unwrap(),
-            Who::User("omril1".into())
+            Who::parse("https://github.com/alice", org).unwrap(),
+            Who::User("alice".into())
         );
         assert_eq!(
-            Who::parse("https://github.com/omril1", org).unwrap(),
-            Who::User("omril1".into())
+            Who::parse("teams/your-team", org).unwrap(),
+            team("your-org", "your-team")
         );
         assert_eq!(
-            Who::parse("teams/dev-ordering", org).unwrap(),
-            team("Autofleet", "dev-ordering")
+            Who::parse("@your-org/your-team", None).unwrap(),
+            team("your-org", "your-team")
         );
         assert_eq!(
-            Who::parse("@Autofleet/dev-ordering", None).unwrap(),
-            team("Autofleet", "dev-ordering")
-        );
-        assert_eq!(
-            Who::parse("https://github.com/orgs/Autofleet/teams/dev-ordering", None).unwrap(),
-            team("Autofleet", "dev-ordering")
+            Who::parse("https://github.com/orgs/your-org/teams/your-team", None).unwrap(),
+            team("your-org", "your-team")
         );
         assert!(Who::parse("teams/x", None).is_err());
         assert!(Who::parse("a b", org).is_err());
@@ -228,11 +225,11 @@ mod tests {
         assert!(f.add(&Who::User("amy".into())));
         assert!(!f.add(&Who::User("zed".into())));
         assert_eq!(f.users, vec!["amy", "Zed"]);
-        assert!(f.add(&team("Autofleet", "dev-ordering")));
+        assert!(f.add(&team("your-org", "your-team")));
         assert_eq!(f.all().len(), 3);
         assert!(f.remove(&Who::User("ZED".into())));
         assert!(!f.remove(&Who::User("zed".into())));
-        assert!(f.remove(&team("autofleet", "DEV-ORDERING")));
+        assert!(f.remove(&team("YOUR-ORG", "YOUR-TEAM")));
         assert_eq!(f.all(), vec![Who::User("amy".into())]);
     }
 
@@ -242,8 +239,8 @@ mod tests {
         let file = FollowFile::new(Some(dir.join("follow.toml")));
         assert_eq!(file.load().unwrap(), Follows::default());
         let mut f = Follows::default();
-        f.add(&Who::User("omril1".into()));
-        f.add(&team("Autofleet", "dev-ordering"));
+        f.add(&Who::User("alice".into()));
+        f.add(&team("your-org", "your-team"));
         file.save(&f).unwrap();
         assert_eq!(file.load().unwrap(), f);
         let _ = std::fs::remove_dir_all(dir);
