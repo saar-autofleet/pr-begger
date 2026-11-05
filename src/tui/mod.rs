@@ -1,0 +1,785 @@
+//! The interactive board.
+
+mod pixel;
+mod view;
+
+use std::collections::{HashMap, HashSet};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use anyhow::Result;
+use chrono::{DateTime, Utc};
+use ratatui::crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+
+use crate::config::{self, Config};
+use crate::github::Client;
+use crate::kind::Kind;
+use crate::model::{Pr, Request};
+use crate::store::{Cache, Seen, Snapshot};
+use crate::target::PrRef;
+
+/// A PR we just begged for stays on the board this long even if GitHub's
+/// search index has not caught up with the new comment yet.
+const POST_GRACE: Duration = Duration::from_secs(180);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Screen {
+    Board,
+    Mine,
+}
+
+impl Screen {
+    fn idx(self) -> usize {
+        match self {
+            Screen::Board => 0,
+            Screen::Mine => 1,
+        }
+    }
+}
+
+pub enum Popup {
+    Help,
+    Pick(Box<Picker>),
+}
+
+pub struct Picker {
+    pub pr: Pr,
+    pub choice: usize,
+    pub why: String,
+}
+
+pub enum Msg {
+    Board(Result<Vec<Pr>, String>),
+    Mine(Result<Vec<Pr>, String>),
+    Posted {
+        pr: Box<Pr>,
+        kind: Kind,
+        why: Option<String>,
+        result: Result<(String, bool), String>,
+    },
+}
+
+pub struct Status {
+    pub text: String,
+    pub error: bool,
+    pub at: Instant,
+}
+
+pub struct App {
+    cfg: Config,
+    client: Option<Arc<Client>>,
+    tx: Sender<Msg>,
+    cache: Cache,
+    pub seen: Seen,
+    pub screen: Screen,
+    pub board: Vec<Pr>,
+    pub mine: Vec<Pr>,
+    pub board_at: Option<DateTime<Utc>>,
+    pub mine_at: Option<DateTime<Utc>>,
+    pub loading_board: bool,
+    pub loading_mine: bool,
+    last_fetch: Instant,
+    pub filter: Option<Kind>,
+    pub cursor: [usize; 2],
+    pub scroll: [usize; 2],
+    pub popup: Option<Popup>,
+    pub new_keys: HashSet<String>,
+    posted: HashMap<String, (Pr, Instant)>,
+    pub status: Option<Status>,
+    pub tick: u64,
+    pub quit: bool,
+}
+
+/// Board order: by kind (cheapest review first), then oldest first, since the
+/// longest-waiting beggar should be served first. Unknown kinds go last.
+pub fn sort_prs(prs: &mut [Pr]) {
+    prs.sort_by(|a, b| {
+        let ka = a.kind().map_or(9, |k| k as u8);
+        let kb = b.kind().map_or(9, |k| k as u8);
+        ka.cmp(&kb)
+            .then(a.created_at.cmp(&b.created_at))
+            .then(a.key().cmp(&b.key()))
+    });
+}
+
+impl App {
+    fn new(
+        cfg: Config,
+        client: Option<Arc<Client>>,
+        tx: Sender<Msg>,
+        cache: Cache,
+        seen: Seen,
+    ) -> Self {
+        let mut app = App {
+            cfg,
+            client,
+            tx,
+            cache,
+            seen,
+            screen: Screen::Board,
+            board: Vec::new(),
+            mine: Vec::new(),
+            board_at: None,
+            mine_at: None,
+            loading_board: false,
+            loading_mine: false,
+            last_fetch: Instant::now(),
+            filter: None,
+            cursor: [0, 0],
+            scroll: [0, 0],
+            popup: None,
+            new_keys: HashSet::new(),
+            posted: HashMap::new(),
+            status: None,
+            tick: 0,
+            quit: false,
+        };
+        if let Some(snap) = app.cache.load(&app.cfg.scope_key()) {
+            app.board = snap.board;
+            app.board_at = snap.board_at;
+            app.set_mine(snap.mine);
+            app.mine_at = snap.mine_at;
+            sort_prs(&mut app.board);
+        }
+        app
+    }
+
+    pub fn scope_label(&self) -> String {
+        self.cfg.scopes().join(" ")
+    }
+
+    pub fn loading(&self) -> bool {
+        self.loading_board || self.loading_mine
+    }
+
+    fn say(&mut self, text: impl Into<String>, error: bool) {
+        self.status = Some(Status {
+            text: text.into(),
+            error,
+            at: Instant::now(),
+        });
+    }
+
+    fn refresh(&mut self) {
+        let Some(client) = self.client.clone() else {
+            return;
+        };
+        self.last_fetch = Instant::now();
+        if !self.loading_board {
+            self.loading_board = true;
+            let (c, cfg, tx) = (client.clone(), self.cfg.clone(), self.tx.clone());
+            std::thread::spawn(move || {
+                let r = c.fetch_board(&cfg).map_err(|e| format!("{e:#}"));
+                let _ = tx.send(Msg::Board(r));
+            });
+        }
+        if !self.loading_mine {
+            self.loading_mine = true;
+            let (cfg, tx) = (self.cfg.clone(), self.tx.clone());
+            std::thread::spawn(move || {
+                let r = client.fetch_mine(&cfg).map_err(|e| format!("{e:#}"));
+                let _ = tx.send(Msg::Mine(r));
+            });
+        }
+    }
+
+    fn set_mine(&mut self, mut mine: Vec<Pr>) {
+        let now = Utc::now();
+        self.new_keys = mine
+            .iter()
+            .filter(|p| self.seen.is_new(p, now))
+            .map(Pr::key)
+            .collect();
+        mine.sort_by(|a, b| {
+            let na = self.new_keys.contains(&a.key());
+            let nb = self.new_keys.contains(&b.key());
+            nb.cmp(&na).then(b.updated_at.cmp(&a.updated_at))
+        });
+        self.mine = mine;
+    }
+
+    fn snapshot(&self) {
+        self.cache.save(&Snapshot {
+            version: 0,
+            scope: self.cfg.scope_key(),
+            board: self.board.clone(),
+            board_at: self.board_at,
+            mine: self.mine.clone(),
+            mine_at: self.mine_at,
+        });
+    }
+
+    fn on_msg(&mut self, msg: Msg) {
+        match msg {
+            Msg::Board(Ok(mut prs)) => {
+                self.loading_board = false;
+                self.posted.retain(|_, (_, at)| at.elapsed() < POST_GRACE);
+                for (key, (pr, _)) in &self.posted {
+                    match prs.iter_mut().find(|p| &p.key() == key) {
+                        // fetched copy predates our comment: keep our kind
+                        Some(p)
+                            if p.request.as_ref().map(|r| r.at)
+                                < pr.request.as_ref().map(|r| r.at) =>
+                        {
+                            p.request = pr.request.clone()
+                        }
+                        Some(_) => {}
+                        None => prs.push(pr.clone()),
+                    }
+                }
+                sort_prs(&mut prs);
+                self.board = prs;
+                self.board_at = Some(Utc::now());
+                self.clamp();
+                self.snapshot();
+            }
+            Msg::Mine(Ok(prs)) => {
+                self.loading_mine = false;
+                self.seen.retain_open(&prs);
+                self.set_mine(prs);
+                self.seen.save();
+                self.mine_at = Some(Utc::now());
+                self.clamp();
+                self.snapshot();
+            }
+            Msg::Board(Err(e)) => {
+                self.loading_board = false;
+                self.say(format!("board refresh failed: {e}"), true);
+            }
+            Msg::Mine(Err(e)) => {
+                self.loading_mine = false;
+                self.say(format!("my-PRs refresh failed: {e}"), true);
+            }
+            Msg::Posted {
+                pr,
+                kind,
+                why,
+                result,
+            } => match result {
+                Ok((_url, updated)) => {
+                    let mut pr = *pr;
+                    pr.request = Some(Request {
+                        kind,
+                        why,
+                        by: None,
+                        at: Utc::now(),
+                    });
+                    let key = pr.key();
+                    for list in [&mut self.board, &mut self.mine] {
+                        if let Some(p) = list.iter_mut().find(|p| p.key() == key) {
+                            p.request = pr.request.clone();
+                        }
+                    }
+                    if !self.board.iter().any(|p| p.key() == key) {
+                        self.board.push(pr.clone());
+                    }
+                    sort_prs(&mut self.board);
+                    self.posted.insert(key.clone(), (pr, Instant::now()));
+                    let verb = if updated { "updated" } else { "posted" };
+                    self.say(
+                        format!("{} {verb}: {} on {key}", kind.emoji(), kind.label()),
+                        false,
+                    );
+                    self.clamp();
+                    self.snapshot();
+                }
+                Err(e) => self.say(format!("could not beg: {e}"), true),
+            },
+        }
+    }
+
+    /// The PRs the current screen lists, in display order.
+    pub fn items(&self) -> Vec<&Pr> {
+        match self.screen {
+            Screen::Board => self
+                .board
+                .iter()
+                .filter(|p| self.filter.is_none() || p.kind() == self.filter)
+                .collect(),
+            Screen::Mine => self
+                .mine
+                .iter()
+                .filter(|p| self.filter.is_none() || p.kind() == self.filter)
+                .collect(),
+        }
+    }
+
+    pub fn selected(&self) -> Option<&Pr> {
+        self.items().get(self.cursor[self.screen.idx()]).copied()
+    }
+
+    pub fn cursor(&self) -> usize {
+        self.cursor[self.screen.idx()]
+    }
+
+    fn clamp(&mut self) {
+        for screen in [Screen::Board, Screen::Mine] {
+            let saved = self.screen;
+            self.screen = screen;
+            let n = self.items().len();
+            let c = &mut self.cursor[screen.idx()];
+            *c = (*c).min(n.saturating_sub(1));
+            self.screen = saved;
+        }
+    }
+
+    fn move_by(&mut self, delta: isize) {
+        let n = self.items().len();
+        if n == 0 {
+            return;
+        }
+        let c = &mut self.cursor[self.screen.idx()];
+        *c = (*c as isize + delta).clamp(0, n as isize - 1) as usize;
+    }
+
+    fn open_selected(&mut self) {
+        let Some(pr) = self.selected().cloned() else {
+            return;
+        };
+        match open_url(&pr.url) {
+            Ok(()) => {
+                if self.screen == Screen::Mine {
+                    self.mark_seen(&pr);
+                }
+                self.say(format!("opened {}", pr.url), false);
+            }
+            Err(e) => self.say(format!("could not open browser: {e}"), true),
+        }
+    }
+
+    fn mark_seen(&mut self, pr: &Pr) {
+        self.seen.mark(pr, Utc::now());
+        self.seen.save();
+        self.new_keys.remove(&pr.key());
+    }
+
+    fn cycle_filter(&mut self, back: bool) {
+        let order = [
+            None,
+            Some(Kind::RubberStamp),
+            Some(Kind::Ai),
+            Some(Kind::Design),
+        ];
+        let i = order.iter().position(|k| *k == self.filter).unwrap_or(0);
+        let next = if back {
+            (i + order.len() - 1) % order.len()
+        } else {
+            (i + 1) % order.len()
+        };
+        self.filter = order[next];
+        self.cursor = [0, 0];
+        self.scroll = [0, 0];
+    }
+
+    fn start_pick(&mut self) {
+        let Some(pr) = self.selected().cloned() else {
+            return;
+        };
+        if self.client.is_none() {
+            return self.say("no GitHub token: cannot post", true);
+        }
+        let choice = pr
+            .kind()
+            .and_then(|k| Kind::ALL.iter().position(|x| *x == k))
+            .unwrap_or(0);
+        let why = pr
+            .request
+            .as_ref()
+            .and_then(|r| r.why.clone())
+            .unwrap_or_default();
+        self.popup = Some(Popup::Pick(Box::new(Picker { pr, choice, why })));
+    }
+
+    fn submit_pick(&mut self, picker: Picker) {
+        let Some(client) = self.client.clone() else {
+            return;
+        };
+        let kind = Kind::ALL[picker.choice];
+        let why = Some(picker.why.trim().to_string()).filter(|w| !w.is_empty());
+        let pr = picker.pr;
+        let Some((owner, repo)) = pr.repo.split_once('/') else {
+            return;
+        };
+        let target = PrRef {
+            owner: owner.into(),
+            repo: repo.into(),
+            number: pr.number,
+        };
+        let tx = self.tx.clone();
+        self.say(
+            format!("begging for {} on {}…", kind.label(), pr.key()),
+            false,
+        );
+        std::thread::spawn(move || {
+            let result = crate::request::request(&client, &target, kind, why.as_deref())
+                .map(|o| (o.url, o.updated))
+                .map_err(|e| format!("{e:#}"));
+            let _ = tx.send(Msg::Posted {
+                pr: Box::new(pr),
+                kind,
+                why,
+                result,
+            });
+        });
+    }
+
+    fn on_key(&mut self, key: KeyEvent, page: usize) {
+        if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.quit = true;
+            return;
+        }
+        match self.popup.take() {
+            Some(Popup::Help) => return, // any key closes help
+            Some(Popup::Pick(mut p)) => {
+                match key.code {
+                    KeyCode::Esc => {}
+                    KeyCode::Enter => self.submit_pick(*p),
+                    KeyCode::Up | KeyCode::BackTab => {
+                        p.choice = (p.choice + Kind::ALL.len() - 1) % Kind::ALL.len();
+                        self.popup = Some(Popup::Pick(p));
+                    }
+                    KeyCode::Down | KeyCode::Tab => {
+                        p.choice = (p.choice + 1) % Kind::ALL.len();
+                        self.popup = Some(Popup::Pick(p));
+                    }
+                    KeyCode::Backspace => {
+                        p.why.pop();
+                        self.popup = Some(Popup::Pick(p));
+                    }
+                    KeyCode::Char(ch) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        if p.why.chars().count() < 200 {
+                            p.why.push(ch);
+                        }
+                        self.popup = Some(Popup::Pick(p));
+                    }
+                    _ => self.popup = Some(Popup::Pick(p)),
+                }
+                return;
+            }
+            None => {}
+        }
+        let page = page.max(1) as isize;
+        match key.code {
+            KeyCode::Char('q') | KeyCode::Esc => self.quit = true,
+            KeyCode::Char('?') => self.popup = Some(Popup::Help),
+            KeyCode::Down | KeyCode::Char('j') => self.move_by(1),
+            KeyCode::Up | KeyCode::Char('k') => self.move_by(-1),
+            KeyCode::PageDown | KeyCode::Char(' ') => self.move_by(page),
+            KeyCode::PageUp => self.move_by(-page),
+            KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.move_by(page / 2)
+            }
+            KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.move_by(-page / 2)
+            }
+            KeyCode::Home | KeyCode::Char('g') => self.cursor[self.screen.idx()] = 0,
+            KeyCode::End | KeyCode::Char('G') => self.move_by(isize::MAX / 2),
+            KeyCode::Tab | KeyCode::BackTab => {
+                self.screen = match self.screen {
+                    Screen::Board => Screen::Mine,
+                    Screen::Mine => Screen::Board,
+                }
+            }
+            KeyCode::Char('1') => self.screen = Screen::Board,
+            KeyCode::Char('2') => self.screen = Screen::Mine,
+            KeyCode::Char('f') => self.cycle_filter(false),
+            KeyCode::Char('F') => self.cycle_filter(true),
+            KeyCode::Enter | KeyCode::Char('o') => self.open_selected(),
+            KeyCode::Char('c') | KeyCode::Char('b') => self.start_pick(),
+            KeyCode::Char('x') => {
+                if let Some(pr) = self.selected().cloned() {
+                    self.mark_seen(&pr);
+                    self.say(format!("marked {} as seen", pr.key()), false);
+                }
+            }
+            KeyCode::Char('r') => {
+                self.refresh();
+                self.say("refreshing…", false);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn open_url(url: &str) -> std::io::Result<()> {
+    #[cfg(target_os = "macos")]
+    let mut cmd = std::process::Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = std::process::Command::new("cmd");
+        c.args(["/C", "start", ""]);
+        c
+    };
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let mut cmd = std::process::Command::new("xdg-open");
+    cmd.arg(url)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map(|_| ())
+}
+
+pub fn run(cfg: Config) -> Result<()> {
+    // Resolve the token before taking over the terminal, so a missing login
+    // is a plain error message rather than a broken screen.
+    let client = Arc::new(Client::from_env()?);
+    let (tx, rx): (Sender<Msg>, Receiver<Msg>) = mpsc::channel();
+    let cache = Cache::new(config::cache_dir());
+    let seen = Seen::load(config::state_dir());
+    let mut app = App::new(cfg, Some(client), tx, cache, seen);
+    app.refresh();
+
+    let mut terminal = ratatui::init();
+    let result = (|| -> Result<()> {
+        let mut page = 10;
+        while !app.quit {
+            terminal.draw(|f| page = view::draw(f, &mut app))?;
+            if event::poll(Duration::from_millis(120))? {
+                if let Event::Key(key) = event::read()? {
+                    if key.kind == KeyEventKind::Press {
+                        app.on_key(key, page);
+                    }
+                }
+            }
+            while let Ok(msg) = rx.try_recv() {
+                app.on_msg(msg);
+            }
+            app.tick = app.tick.wrapping_add(1);
+            if let Some(every) = app.cfg.refresh() {
+                if app.last_fetch.elapsed() >= every && !app.loading() {
+                    app.refresh();
+                }
+            }
+            if app
+                .status
+                .as_ref()
+                .is_some_and(|s| !s.error && s.at.elapsed() > Duration::from_secs(6))
+            {
+                app.status = None;
+            }
+        }
+        Ok(())
+    })();
+    ratatui::restore();
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::github::parse_search_response;
+
+    fn app_with(prs: Vec<Pr>) -> App {
+        let (tx, _rx) = mpsc::channel();
+        let mut app = App {
+            cfg: Config::default(),
+            client: None,
+            tx,
+            cache: Cache::new(None),
+            seen: Seen::in_memory(),
+            screen: Screen::Board,
+            board: Vec::new(),
+            mine: Vec::new(),
+            board_at: None,
+            mine_at: None,
+            loading_board: false,
+            loading_mine: false,
+            last_fetch: Instant::now(),
+            filter: None,
+            cursor: [0, 0],
+            scroll: [0, 0],
+            popup: None,
+            new_keys: HashSet::new(),
+            posted: HashMap::new(),
+            status: None,
+            tick: 0,
+            quit: false,
+        };
+        app.on_msg(Msg::Board(Ok(prs.clone())));
+        // pretend you last looked at infra#88 before its newest review comment
+        if let Some(pr) = prs.iter().find(|p| p.number == 88) {
+            app.seen.mark(pr, pr.created_at);
+        }
+        app.on_msg(Msg::Mine(Ok(prs)));
+        app
+    }
+
+    fn sample() -> Vec<Pr> {
+        parse_search_response(include_str!("../../tests/fixtures/search.json")).unwrap()
+    }
+
+    #[test]
+    fn board_sorts_by_kind_then_age() {
+        let app = app_with(sample());
+        let kinds: Vec<_> = app.items().iter().map(|p| p.kind()).collect();
+        assert_eq!(
+            kinds,
+            vec![Some(Kind::RubberStamp), Some(Kind::Design), None]
+        );
+    }
+
+    #[test]
+    fn filter_cycles_and_narrows() {
+        let mut app = app_with(sample());
+        app.on_key(KeyEvent::from(KeyCode::Char('f')), 10);
+        assert_eq!(app.filter, Some(Kind::RubberStamp));
+        assert_eq!(app.items().len(), 1);
+        app.on_key(KeyEvent::from(KeyCode::Char('F')), 10);
+        assert_eq!(app.filter, None);
+    }
+
+    #[test]
+    fn cursor_stays_in_bounds() {
+        let mut app = app_with(sample());
+        app.on_key(KeyEvent::from(KeyCode::Char('G')), 10);
+        assert_eq!(app.cursor(), 2);
+        app.on_key(KeyEvent::from(KeyCode::Char('j')), 10);
+        assert_eq!(app.cursor(), 2);
+        app.on_key(KeyEvent::from(KeyCode::Char('g')), 10);
+        assert_eq!(app.cursor(), 0);
+    }
+
+    #[test]
+    fn posting_updates_the_row_and_survives_a_stale_refresh() {
+        let mut app = app_with(sample());
+        let pr = app
+            .board
+            .iter()
+            .find(|p| p.kind().is_none())
+            .unwrap()
+            .clone();
+        app.on_msg(Msg::Posted {
+            pr: Box::new(pr.clone()),
+            kind: Kind::Ai,
+            why: Some("boilerplate".into()),
+            result: Ok(("https://x".into(), false)),
+        });
+        let find = |app: &App| {
+            app.board
+                .iter()
+                .find(|p| p.key() == pr.key())
+                .unwrap()
+                .kind()
+        };
+        assert_eq!(find(&app), Some(Kind::Ai));
+        // the search index has not seen the new comment yet
+        app.on_msg(Msg::Board(Ok(sample())));
+        assert_eq!(find(&app), Some(Kind::Ai));
+    }
+
+    #[test]
+    fn picker_edits_reason_and_cycles_kind() {
+        let mut app = app_with(sample());
+        app.popup = Some(Popup::Pick(Box::new(Picker {
+            pr: app.board[0].clone(),
+            choice: 0,
+            why: String::new(),
+        })));
+        for k in [
+            KeyCode::Down,
+            KeyCode::Char('h'),
+            KeyCode::Char('i'),
+            KeyCode::Backspace,
+        ] {
+            app.on_key(KeyEvent::from(k), 10);
+        }
+        match &app.popup {
+            Some(Popup::Pick(p)) => {
+                assert_eq!(p.choice, 1);
+                assert_eq!(p.why, "h");
+            }
+            _ => panic!("picker closed"),
+        }
+        app.on_key(KeyEvent::from(KeyCode::Esc), 10);
+        assert!(app.popup.is_none());
+    }
+
+    #[test]
+    fn renders_without_panicking_at_many_sizes() {
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+        let mut app = app_with(sample());
+        for (w, h) in [(20, 5), (60, 15), (100, 30), (160, 50)] {
+            for screen in [Screen::Board, Screen::Mine] {
+                app.screen = screen;
+                for popup in [0, 1, 2] {
+                    app.popup = match popup {
+                        1 => Some(Popup::Help),
+                        2 => Some(Popup::Pick(Box::new(Picker {
+                            pr: app.board[0].clone(),
+                            choice: 2,
+                            why: "why not".into(),
+                        }))),
+                        _ => None,
+                    };
+                    let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
+                    t.draw(|f| {
+                        view::draw(f, &mut app);
+                    })
+                    .unwrap();
+                }
+            }
+        }
+    }
+}
+
+/// `cargo test print_screens -- --ignored --nocapture` prints the screens as
+/// plain text; that is where the README's text screenshots come from.
+#[cfg(test)]
+mod screens {
+    use super::*;
+    use crate::github::parse_search_response;
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+
+    #[test]
+    #[ignore]
+    fn print_screens() {
+        let (tx, _rx) = mpsc::channel();
+        let mut app = App::new(
+            Config::default(),
+            None,
+            tx,
+            Cache::new(None),
+            Seen::in_memory(),
+        );
+        let prs = parse_search_response(include_str!("../../tests/fixtures/demo.json")).unwrap();
+        app.on_msg(Msg::Board(Ok(prs
+            .iter()
+            .filter(|p| p.request.is_some())
+            .cloned()
+            .collect())));
+        // pretend you last looked at infra#88 before its newest review comment
+        if let Some(pr) = prs.iter().find(|p| p.number == 88) {
+            app.seen.mark(pr, pr.created_at);
+        }
+        app.on_msg(Msg::Mine(Ok(prs
+            .iter()
+            .filter(|p| p.activity.is_some())
+            .cloned()
+            .collect())));
+        let w: u16 = std::env::var("W")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(120);
+        let h: u16 = std::env::var("H")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(24);
+        for screen in [Screen::Board, Screen::Mine] {
+            app.screen = screen;
+            let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
+            t.draw(|f| {
+                view::draw(f, &mut app);
+            })
+            .unwrap();
+            let buf = t.backend().buffer();
+            for y in 0..h {
+                let line: String = (0..w).map(|x| buf[(x, y)].symbol().to_string()).collect();
+                println!("{}", line.trim_end());
+            }
+            println!();
+        }
+    }
+}

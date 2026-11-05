@@ -1,0 +1,141 @@
+{
+  "data": {
+    "search": {
+      "pageInfo": { "hasNextPage": false, "endCursor": "Y3Vyc29yOjM=" },
+      "nodes": [
+        {
+          "id": "PR_a",
+          "number": 101,
+          "title": "Rework dispatch queue",
+          "url": "https://github.com/Autofleet/api/pull/101",
+          "isDraft": false,
+          "createdAt": "2026-11-01T08:00:00Z",
+          "updatedAt": "2026-11-02T09:00:00Z",
+          "additions": 120,
+          "deletions": 30,
+          "author": { "__typename": "User", "login": "alice" },
+          "repository": { "nameWithOwner": "Autofleet/api" },
+          "reviewDecision": "REVIEW_REQUIRED",
+          "mergeable": "MERGEABLE",
+          "mergeStateStatus": "BEHIND",
+          "reviewRequests": { "totalCount": 2 },
+          "latestOpinionatedReviews": { "nodes": [] },
+          "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "FAILURE" } } } ] },
+          "comments": {
+            "totalCount": 3,
+            "nodes": [
+              {
+                "id": "IC_1",
+                "body": "<!-- pr-begger: {\"v\":1,\"kind\":\"rubber-stamp\"} -->\n🟩 **CR kind: Rubber stamp**",
+                "createdAt": "2026-11-01T08:05:00Z",
+                "lastEditedAt": null,
+                "author": { "__typename": "User", "login": "alice" }
+              },
+              {
+                "id": "IC_2",
+                "body": "<!-- pr-begger: {\"v\":1,\"kind\":\"design\",\"why\":\"new queue topology\"} -->\n🧭 **CR kind: Design review** - new queue topology",
+                "createdAt": "2026-11-02T08:00:00Z",
+                "lastEditedAt": null,
+                "author": { "__typename": "User", "login": "carol" }
+              },
+              {
+                "id": "IC_3",
+                "body": "agreed, needs a design pass",
+                "createdAt": "2026-11-02T09:00:00Z",
+                "lastEditedAt": null,
+                "author": { "__typename": "User", "login": "bob" }
+              }
+            ]
+          }
+        },
+        {
+          "id": "PR_b",
+          "number": 55,
+          "title": "WIP: talk about pr-begger",
+          "url": "https://github.com/Autofleet/web/pull/55",
+          "isDraft": true,
+          "createdAt": "2026-11-03T08:00:00Z",
+          "updatedAt": "2026-11-03T08:00:00Z",
+          "additions": 1,
+          "deletions": 0,
+          "author": { "__typename": "User", "login": "dave" },
+          "repository": { "nameWithOwner": "Autofleet/web" },
+          "reviewDecision": null,
+          "mergeable": "UNKNOWN",
+          "mergeStateStatus": "DRAFT",
+          "reviewRequests": { "totalCount": 0 },
+          "latestOpinionatedReviews": { "nodes": [] },
+          "commits": { "nodes": [ { "commit": { "statusCheckRollup": null } } ] },
+          "comments": {
+            "totalCount": 1,
+            "nodes": [
+              {
+                "id": "IC_4",
+                "body": "should we try pr-begger here?",
+                "createdAt": "2026-11-03T08:01:00Z",
+                "lastEditedAt": null,
+                "author": { "__typename": "User", "login": "dave" }
+              }
+            ]
+          }
+        },
+        {},
+        {
+          "id": "PR_c",
+          "number": 7,
+          "title": "Bump lodash",
+          "url": "https://github.com/Autofleet/web/pull/7",
+          "isDraft": false,
+          "createdAt": "2026-11-03T07:00:00Z",
+          "updatedAt": "2026-11-05T09:00:00Z",
+          "additions": 3,
+          "deletions": 3,
+          "author": { "__typename": "User", "login": "saar" },
+          "repository": { "nameWithOwner": "Autofleet/web" },
+          "reviewDecision": "APPROVED",
+          "mergeable": "MERGEABLE",
+          "mergeStateStatus": "CLEAN",
+          "reviewRequests": { "totalCount": 0 },
+          "latestOpinionatedReviews": {
+            "nodes": [
+              { "state": "APPROVED", "submittedAt": "2026-11-03T10:00:00Z", "author": { "__typename": "User", "login": "bob" } }
+            ]
+          },
+          "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "SUCCESS" } } } ] },
+          "comments": {
+            "totalCount": 2,
+            "nodes": [
+              {
+                "id": "IC_5",
+                "body": "<!-- pr-begger: {\"v\":1,\"kind\":\"rubber-stamp\"} -->\n🟩 **CR kind: Rubber stamp**",
+                "createdAt": "2026-11-03T07:01:00Z",
+                "lastEditedAt": null,
+                "author": { "__typename": "User", "login": "saar" }
+              },
+              {
+                "id": "IC_6",
+                "body": "Coverage report: 98%",
+                "createdAt": "2026-11-05T08:00:00Z",
+                "lastEditedAt": null,
+                "author": { "__typename": "Bot", "login": "github-actions" }
+              }
+            ]
+          },
+          "reviewThreads": {
+            "totalCount": 2,
+            "nodes": [
+              {
+                "isResolved": false,
+                "comments": { "nodes": [ { "createdAt": "2026-11-04T12:00:00Z", "author": { "__typename": "User", "login": "bob" } } ] }
+              },
+              {
+                "isResolved": true,
+                "comments": { "nodes": [ { "createdAt": "2026-11-05T09:00:00Z", "author": { "__typename": "User", "login": "saar" } } ] }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
