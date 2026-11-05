@@ -9,7 +9,8 @@ use ratatui::Frame;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use super::pixel::{self, kind_color, pal};
-use super::{App, Picker, Popup, Screen};
+use super::{App, FollowEditor, Picker, Popup, Screen};
+use crate::follow::Who;
 use crate::kind::Kind;
 use crate::model::{age, Ci, Decision, Merge, Pr};
 
@@ -166,6 +167,7 @@ pub fn draw(f: &mut Frame, app: &mut App) -> usize {
     match &app.popup {
         Some(Popup::Help) => draw_help(f, area),
         Some(Popup::Pick(p)) => draw_picker(f, p, area),
+        Some(Popup::Follows(ed)) => draw_follows(f, app, ed, area),
         None => {}
     }
     page
@@ -190,6 +192,11 @@ fn tabs(app: &App) -> Line<'static> {
             format!(" My PRs {} ", app.mine.len()),
             app.screen == Screen::Mine,
         ),
+        Span::raw(" "),
+        tab(
+            format!(" Following {} ", app.following.len()),
+            app.screen == Screen::Following,
+        ),
     ];
     if new > 0 {
         spans.push(Span::raw(" "));
@@ -197,6 +204,9 @@ fn tabs(app: &App) -> Line<'static> {
             format!(" {new} new "),
             Style::new().fg(pal::INK).bg(pal::PINK),
         ));
+    }
+    if app.only_followed && app.screen == Screen::Board {
+        spans.push(Span::styled("  followed only", muted()));
     }
     if let Some(k) = app.filter {
         spans.push(Span::styled("  only ", muted()));
@@ -211,6 +221,7 @@ fn status_line(app: &App) -> Line<'static> {
     let at = match app.screen {
         Screen::Board => app.board_at,
         Screen::Mine => app.mine_at,
+        Screen::Following => app.following_at,
     };
     let mut spans = Vec::new();
     if app.loading() {
@@ -262,10 +273,7 @@ fn draw_legend(f: &mut Frame, app: &App, area: Rect) {
     if area.width < ENTRY_W * 3 || area.height < 4 {
         return;
     }
-    let list = match app.screen {
-        Screen::Board => &app.board,
-        Screen::Mine => &app.mine,
-    };
+    let list = app.list(app.screen);
     // icons are 4 rows: they may use the tab row, which is empty this far right
     // right-aligned, so a long tab row (new count, filter) does not run into it
     let w = ENTRY_W * 3;
@@ -328,6 +336,13 @@ fn columns(app: &App, items: &[&Pr], width: usize) -> Cols {
     let mut author = 0;
     let mut size = 0;
     match app.screen {
+        Screen::Following => {
+            // grouped by author, so no author column
+            if width.saturating_sub(fixed + 11) >= 24 {
+                size = 11;
+                fixed += 11;
+            }
+        }
         Screen::Board => {
             for (col, w) in [(&mut size, 11usize), (&mut author, 12usize)] {
                 if width.saturating_sub(fixed + w) >= 24 {
@@ -405,6 +420,21 @@ fn rows<'a>(app: &'a App, items: &[&'a Pr], width: usize) -> Vec<Row<'a>> {
                     let n = items.iter().filter(|p| p.kind() == pr.kind()).count();
                     out.push(Row::Header(group_header(pr.kind(), n, width)));
                     last = Some(pr.kind());
+                }
+                out.push(Row::Item(i, pr));
+            }
+        }
+        Screen::Following => {
+            let mut last: Option<String> = None;
+            for (i, pr) in items.iter().enumerate() {
+                let who = pr.author.to_lowercase();
+                if last.as_deref() != Some(who.as_str()) {
+                    let n = items
+                        .iter()
+                        .filter(|p| p.author.to_lowercase() == who)
+                        .count();
+                    out.push(Row::Header(rule_line(&pr.author, n, "", pal::LILAC, width)));
+                    last = Some(who);
                 }
                 out.push(Row::Item(i, pr));
             }
@@ -499,9 +529,9 @@ fn draw_list(f: &mut Frame, app: &App, area: Rect) -> (usize, usize) {
                 ),
                 muted(),
             ))]
-        } else if app.filter.is_some() {
+        } else if app.filter.is_some() || (app.only_followed && app.screen == Screen::Board) {
             vec![Line::from(Span::styled(
-                "  nothing with this kind (f to change filter)",
+                "  nothing matches (f changes the kind filter, w the followed-only filter)",
                 muted(),
             ))]
         } else if app.screen == Screen::Board {
@@ -517,6 +547,24 @@ fn draw_list(f: &mut Frame, app: &App, area: Rect) -> (usize, usize) {
                 )),
                 Line::from("    pr-begger request <pr-url> --kind rubber-stamp|ai|design"),
             ]
+        } else if app.screen == Screen::Following && app.follows.is_empty() {
+            vec![
+                Line::from(Span::styled(
+                    "  You don't follow anyone yet.",
+                    Style::new().bold(),
+                )),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  p  add people or teams (omril1, Autofleet/dev-ordering)",
+                    muted(),
+                )),
+                Line::from(Span::styled("  +  on any PR follows its author", muted())),
+            ]
+        } else if app.screen == Screen::Following {
+            vec![Line::from(Span::styled(
+                "  No open PRs from the people you follow.",
+                muted(),
+            ))]
         } else {
             vec![Line::from(Span::styled(
                 "  You have no open PRs in scope.",
@@ -680,28 +728,6 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
 
 /// The status bar: keys (or the latest message) left, freshness right.
 fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
-    let right = status_line(app);
-    // the freshness note only fits beside the keys on wide terminals
-    let rw = if area.width >= 110 {
-        right.width() as u16
-    } else {
-        0
-    };
-    let [left_area, right_area] =
-        Layout::horizontal([Constraint::Min(0), Constraint::Length(rw)]).areas(area);
-    f.render_widget(Paragraph::new(right).right_aligned(), right_area);
-    if let Some(s) = &app.status {
-        let style = if s.error {
-            Style::new().fg(Color::Red)
-        } else {
-            Style::new()
-        };
-        f.render_widget(
-            Paragraph::new(Line::from(Span::styled(format!(" {}", s.text), style))),
-            left_area,
-        );
-        return;
-    }
     let key = |k: &str| Span::styled(format!(" {k}"), Style::new().bold());
     let txt = |t: &str| Span::styled(format!(" {t} "), muted());
     let mut spans = vec![
@@ -716,9 +742,12 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
         key("tab"),
         txt("screen"),
     ];
-    if app.screen == Screen::Mine {
-        spans.extend([key("x"), txt("seen")]);
+    match app.screen {
+        Screen::Mine => spans.extend([key("x"), txt("seen")]),
+        Screen::Board => spans.extend([key("w"), txt("followed")]),
+        Screen::Following => spans.extend([key("+"), txt("follow")]),
     }
+    spans.extend([key("p"), txt("people")]);
     spans.extend([
         key("r"),
         txt("refresh"),
@@ -727,7 +756,30 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
         key("q"),
         txt("quit"),
     ]);
-    f.render_widget(Paragraph::new(Line::from(spans)), left_area);
+    let left = match &app.status {
+        Some(s) => Line::from(Span::styled(
+            format!(" {}", s.text),
+            if s.error {
+                Style::new().fg(Color::Red)
+            } else {
+                Style::new()
+            },
+        )),
+        None => Line::from(spans),
+    };
+    // freshness and scope on the right, only when they fit beside the left
+    let right = status_line(app);
+    let rw = right.width() as u16;
+    let fits = left.width() as u16 + rw < area.width;
+    let [left_area, right_area] = Layout::horizontal([
+        Constraint::Min(0),
+        Constraint::Length(if fits { rw } else { 0 }),
+    ])
+    .areas(area);
+    f.render_widget(Paragraph::new(left), left_area);
+    if fits {
+        f.render_widget(Paragraph::new(right).right_aligned(), right_area);
+    }
 }
 
 fn centered(area: Rect, w: u16, h: u16) -> Rect {
@@ -742,7 +794,7 @@ fn centered(area: Rect, w: u16, h: u16) -> Rect {
 }
 
 fn draw_help(f: &mut Frame, area: Rect) {
-    let r = centered(area, 66, 26);
+    let r = centered(area, 66, 29);
     f.render_widget(Clear, r);
     let block = window("Help", r.width, pal::LILAC);
     let k = |key: &str, what: &str| {
@@ -757,8 +809,11 @@ fn draw_help(f: &mut Frame, area: Rect) {
         k("enter / o", "open the PR in your browser"),
         k("c / b", "beg: set or change the CR kind (posts as you)"),
         k("f / F", "filter by kind (cycles)"),
-        k("tab / 1 / 2", "begging board / my PRs"),
+        k("tab / 1 2 3", "begging board / my PRs / following"),
         k("x", "mark a PR's activity as seen"),
+        k("p", "people & teams you follow (a add, d remove)"),
+        k("+", "follow the selected PR's author"),
+        k("w", "board: only PRs by people you follow"),
         k("r", "refresh now"),
         k("q / esc", "quit"),
         Line::from(""),
@@ -800,6 +855,73 @@ fn draw_help(f: &mut Frame, area: Rect) {
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled("  any key closes", muted())));
     f.render_widget(Paragraph::new(lines).block(block), r);
+}
+
+fn draw_follows(f: &mut Frame, app: &App, ed: &FollowEditor, area: Rect) {
+    let entries = app.follows.all();
+    let h = (entries.len() as u16 + 9).clamp(12, 24);
+    let r = centered(area, 60, h);
+    f.render_widget(Clear, r);
+    let block = window("People & teams you follow", r.width, pal::LILAC);
+    let inner = block.inner(r);
+    f.render_widget(block, r);
+    let mut lines = vec![Line::from("")];
+    if entries.is_empty() {
+        lines.push(Line::from(Span::styled(
+            "  nobody yet — press a to add",
+            muted(),
+        )));
+    }
+    for (i, who) in entries.iter().enumerate() {
+        let (tag, name) = match who {
+            Who::User(u) => ("user", u.clone()),
+            Who::Team { .. } => ("team", who.to_string()),
+        };
+        let mut line = Line::from(vec![
+            Span::raw(if i == ed.cursor { " ▸ " } else { "   " }),
+            Span::styled(format!("{tag}  "), muted()),
+            Span::raw(name),
+        ]);
+        if i == ed.cursor && ed.input.is_none() {
+            line = line.style(Style::new().fg(pal::INK).bg(pal::LILAC));
+        }
+        lines.push(line);
+    }
+    lines.push(Line::from(""));
+    match &ed.input {
+        Some(text) => {
+            lines.push(Line::from(vec![
+                Span::styled("   add: ", muted()),
+                Span::raw(text.clone()),
+                Span::styled("▏", Style::new().add_modifier(Modifier::SLOW_BLINK)),
+            ]));
+            lines.push(Line::from(Span::styled(
+                "   login, org/team, teams/<team>, or a GitHub URL",
+                muted(),
+            )));
+            lines.push(Line::from(Span::styled(
+                "   enter add · esc cancel",
+                muted(),
+            )));
+        }
+        None => {
+            lines.push(Line::from(Span::styled(
+                if ed.checking {
+                    "   checking with GitHub…"
+                } else {
+                    "   a add · d remove · ↑↓ move · esc close"
+                },
+                muted(),
+            )));
+            if let Some(p) = app.follow_file.path() {
+                lines.push(Line::from(Span::styled(
+                    format!("   {}", p.display()),
+                    muted(),
+                )));
+            }
+        }
+    }
+    f.render_widget(Paragraph::new(lines), inner);
 }
 
 fn draw_picker(f: &mut Frame, p: &Picker, area: Rect) {

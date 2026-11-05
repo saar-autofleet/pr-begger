@@ -17,6 +17,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::config::Config;
+use crate::follow::{author_chunks, Follows, Who};
 use crate::marker::{self, Comment, SEARCH_TOKEN};
 use crate::model::{Activity, Ci, Decision, Merge, Pr, Request, Review};
 use crate::target::PrRef;
@@ -138,13 +139,15 @@ impl Client {
 
     /// Open PRs carrying a CR-kind marker, across every configured scope.
     pub fn fetch_board(&self, cfg: &Config) -> Result<Vec<Pr>> {
-        let prs = self.fetch(cfg, false, |scope| match scope.strip_prefix("repo:") {
-            // A named repo is listed directly: no dependence on the search
-            // index, which can take minutes to pick up a new comment.
-            Some(repo) => Source::OpenPrs(repo.to_string()),
-            None => Source::Search(format!(
-                "is:pr is:open archived:false \"{SEARCH_TOKEN}\" in:comments {scope}"
-            )),
+        let prs = self.fetch(cfg, false, |scope| {
+            vec![match scope.strip_prefix("repo:") {
+                // A named repo is listed directly: no dependence on the search
+                // index, which can take minutes to pick up a new comment.
+                Some(repo) => Source::OpenPrs(repo.to_string()),
+                None => Source::Search(format!(
+                    "is:pr is:open archived:false \"{SEARCH_TOKEN}\" in:comments {scope}"
+                )),
+            }]
         })?;
         // The search matched the word; only a readable marker makes it a request.
         Ok(prs.into_iter().filter(|p| p.request.is_some()).collect())
@@ -153,8 +156,112 @@ impl Client {
     /// The viewer's own open PRs, with conversation activity.
     pub fn fetch_mine(&self, cfg: &Config) -> Result<Vec<Pr>> {
         self.fetch(cfg, true, |scope| {
-            Source::Search(format!("is:pr is:open archived:false author:@me {scope}"))
+            vec![Source::Search(format!(
+                "is:pr is:open archived:false author:@me {scope}"
+            ))]
         })
+    }
+
+    /// Open PRs by followed people and members of followed teams, in scope.
+    /// Also returns the resolved author set (for the board's follow filter).
+    pub fn fetch_following(
+        &self,
+        cfg: &Config,
+        follows: &Follows,
+    ) -> Result<(Vec<Pr>, Vec<String>)> {
+        let mut authors: Vec<String> = follows.users.clone();
+        for who in follows.all() {
+            if let Who::Team { org, slug } = &who {
+                authors.extend(
+                    self.team_members(org, slug)
+                        .with_context(|| format!("listing team {who}"))?,
+                );
+            }
+        }
+        let mut seen = HashSet::new();
+        authors.retain(|a| seen.insert(a.to_lowercase()));
+        authors.sort_by_key(|a| a.to_lowercase());
+        if authors.is_empty() {
+            return Ok((Vec::new(), authors));
+        }
+        let chunks = author_chunks(&authors);
+        let prs = self.fetch(cfg, false, |scope| {
+            chunks
+                .iter()
+                .map(|c| {
+                    let who: Vec<String> = c.iter().map(|a| format!("author:{a}")).collect();
+                    Source::Search(format!(
+                        "is:pr is:open archived:false {scope} {}",
+                        who.join(" ")
+                    ))
+                })
+                .collect()
+        })?;
+        Ok((prs, authors))
+    }
+
+    pub fn team_members(&self, org: &str, slug: &str) -> Result<Vec<String>> {
+        let mut out = Vec::new();
+        let mut after: Option<String> = None;
+        loop {
+            let v: Value =
+                self.graphql(TEAM_QUERY, json!({ "o": org, "t": slug, "after": after }))?;
+            let members = v
+                .pointer("/organization/team/members")
+                .filter(|m| !m.is_null())
+                .ok_or_else(|| anyhow!("team {org}/{slug} not found (or no access)"))?;
+            if let Some(nodes) = members.pointer("/nodes").and_then(Value::as_array) {
+                out.extend(
+                    nodes
+                        .iter()
+                        .filter_map(|n| n.pointer("/login").and_then(Value::as_str))
+                        .map(String::from),
+                );
+            }
+            let more = members
+                .pointer("/pageInfo/hasNextPage")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            after = members
+                .pointer("/pageInfo/endCursor")
+                .and_then(Value::as_str)
+                .map(String::from);
+            if !more || after.is_none() {
+                break;
+            }
+        }
+        Ok(out)
+    }
+
+    /// Confirm a user or team exists before following it, and return its
+    /// canonical name (a typo'd login would otherwise break every search
+    /// it is part of). For a team the description includes its size.
+    pub fn check(&self, who: &Who) -> Result<(Who, String)> {
+        match who {
+            Who::User(login) => {
+                let v: Result<Value> = self.graphql(
+                    "query($l:String!){user(login:$l){login name}}",
+                    json!({ "l": login }),
+                );
+                let v = v.map_err(|_| anyhow!("no GitHub user `{login}`"))?;
+                let user = v
+                    .pointer("/user")
+                    .filter(|u| !u.is_null())
+                    .ok_or_else(|| anyhow!("no GitHub user `{login}`"))?;
+                let login = user["login"].as_str().unwrap_or(login).to_string();
+                let name = user["name"].as_str().unwrap_or("").to_string();
+                let desc = if name.is_empty() {
+                    login.clone()
+                } else {
+                    format!("{login} ({name})")
+                };
+                Ok((Who::User(login), desc))
+            }
+            Who::Team { org, slug } => {
+                let n = self.team_members(org, slug)?.len();
+                Ok((who.clone(), format!("{who} ({n} members)")))
+            }
+        }
     }
 
     /// Two phases. The search returns only PR ids, which is fast. Everything
@@ -166,7 +273,7 @@ impl Client {
         &self,
         cfg: &Config,
         mine: bool,
-        query: impl Fn(&str) -> Source + Sync,
+        query: impl Fn(&str) -> Vec<Source> + Sync,
     ) -> Result<Vec<Pr>> {
         let ids = self.search_scopes(cfg, query)?;
         self.details(&ids, mine)
@@ -222,17 +329,24 @@ impl Client {
     fn search_scopes(
         &self,
         cfg: &Config,
-        query: impl Fn(&str) -> Source + Sync,
+        query: impl Fn(&str) -> Vec<Source> + Sync,
     ) -> Result<Vec<String>> {
-        let scopes = cfg.scopes();
+        let jobs: Vec<(String, Source)> = cfg
+            .scopes()
+            .into_iter()
+            .flat_map(|scope| {
+                query(&scope)
+                    .into_iter()
+                    .map(move |src| (scope.clone(), src))
+            })
+            .collect();
         let results: Vec<Result<Vec<String>>> = std::thread::scope(|s| {
-            let handles: Vec<_> = scopes
+            let handles: Vec<_> = jobs
                 .iter()
-                .map(|scope| {
-                    let source = query(scope);
+                .map(|(_, source)| {
                     s.spawn(move || match source {
-                        Source::Search(q) => self.search(&q, cfg.max_prs),
-                        Source::OpenPrs(repo) => self.open_prs(&repo, cfg.max_prs),
+                        Source::Search(q) => self.search(q, cfg.max_prs),
+                        Source::OpenPrs(repo) => self.open_prs(repo, cfg.max_prs),
                     })
                 })
                 .collect();
@@ -246,7 +360,7 @@ impl Client {
         });
         let mut seen = HashSet::new();
         let mut out = Vec::new();
-        for (scope, r) in scopes.iter().zip(results) {
+        for ((scope, _), r) in jobs.iter().zip(results) {
             for id in r.with_context(|| format!("searching {scope}"))? {
                 if seen.insert(id.clone()) {
                     out.push(id);
@@ -395,6 +509,18 @@ query($q: String!, $n: Int!, $after: String) {
   search(query: $q, type: ISSUE, first: $n, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes { ... on PullRequest { id } }
+  }
+}"#;
+
+const TEAM_QUERY: &str = r#"
+query($o: String!, $t: String!, $after: String) {
+  organization(login: $o) {
+    team(slug: $t) {
+      members(first: 100, after: $after) {
+        pageInfo { hasNextPage endCursor }
+        nodes { login }
+      }
+    }
   }
 }"#;
 

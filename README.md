@@ -61,30 +61,30 @@ TUI with `c`.
 Run `pr-begger` with no arguments.
 
 ```text
-
- █▀▀▄ █▀▀▄    █▀▀▄ █▀▀▀ ▄▀▀▀ ▄▀▀▀ █▀▀▀ █▀▀▄  █▀▀▀▀▀▀▀▀█              █▀▀▀▀▀▀▀▀█              █▀▀▀██▀▀▀█
- ▀▀▀▀ ▀▀▀▀    ▀▀▀▀ ▀▀▀  ▀ ▀▀ ▀ ▀▀ ▀▀▀  ▀▀▀▀  ██▀▀▀▀▀▀██ RUBBER STAMP ██▀▀▀▀▀▀██ AI REVIEW    ███▀▀▀▀███ DESIGN
- ▀    ▀ ▀▀    ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀ ▀▀  ██▀▀▀▀▀▀██ 3 PRs        ███▀██▀███ 2 PRs        ███▀▀▀▀███ 2 PRs
- 1 BEGGING 7   2 MY PRS 3  ●1 new            █▀▀▀▀▀▀▀▀█ just approve ██▀█▀▀█▀██ bot reviews  ██████████ humans think
- updated just now · org:Autofleet            ███▀██▀███              █▀██▀▀██▀█              █▀▀▀▀▀▀▀▀█
- ▚▞ RUBBER STAMP · 3 ▔▔▔▔ mechanical change, approve as-is                    ▛ api#812 ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▜
-▌ STAMP  api#812       Bump serde to 1.0.230 across works…    +14 -14  1d ✓ ○ ▌ █▀▀▀▀▀▀▀▀█ RUBBER STAMP              ▐
-  STAMP  infra#90      Pin terraform provider versions        +22 -22  1d ✓ ✓ ▌ ██▀▀▀▀▀▀██ mechanical change, approve▐
-  STAMP  web#77        Rename FleetCard props (no behavio…    +48 -48  5h ◐ ○ ▌ ██▀▀▀▀▀▀██ as-is                     ▐
- ▚▞ AI REVIEW · 2 ▔▔▔▔ let an AI agent go over it                             ▌ █▀▀▀▀▀▀▀▀█ by @dana · 1d             ▐
-   A.I   dispatch#1290 Add retry budget to the matcher cl…   +212 -40  2d ✓ ○ ▌ ███▀██▀███                           ▐
-   A.I   dispatch#1294 Typed config loader for routing se…  +330 -120  8h ✗ ○ ▌                                      ▐
- ▚▞ DESIGN REVIEW · 2 ▔▔▔▔ needs a human design review                        ▌ “lockfile only”                      ▐
-  DSIGN  billing#431   Split invoice ledger into events +… +1840 -610  3d ✓ ✗ ▌                                      ▐
-  DSIGN  infra#88      Move workers to spot node pools        +96 -12 20h · ○ ▌ Bump serde to 1.0.230 across         ▐
-                                                                              ▌ workspace                            ▐
-                                                                              ▌ acme/api                             ▐
-                                                                              ▌                                      ▐
-                                                                              ▌ author   @dana                       ▐
-                                                                              ▌ opened   1d ago                      ▐
-                                                                              ▌ size     +14 -14                     ▐
-                                                                              ▌ ci       ✓ passing                   ▐
-                                                                              ▙▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▟
+ █▀▀▄ █▀▀▄    █▀▀▄ █▀▀▀ ▄▀▀▀ ▄▀▀▀ █▀▀▀ █▀▀▄                    ▄▀▀▀▀▄  Rubber stamp   ▄▀▄▄   AI review      ▄▀▀▄   Design
+ ▀▀▀▀ ▀▀▀▀    ▀▀▀▀ ▀▀▀  ▀ ▀▀ ▀ ▀▀ ▀▀▀  ▀▀▀▀                     ████   3 PRs        ▄▀▀██▀▀▄ 2 PRs          █▀▀█   2 PRs
+ ▀    ▀ ▀▀    ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀ ▀▀                   ▄▀▀▀▀▀▀▄ just approve ▀▀█▀▀█▀▀ bot reviews   ██████  humans think
+ Begging 7   My PRs 3   Following 4   1 new                   ▀▀▀▀▀▀▀                ▀▀▀▀▀▀               ▀▀▀  ▀▀▀
+─── Rubber stamp 3 ────── mechanical change, approve as-is                              ┌ api#812                            × ┐
+▸● stamp  api#812       Bump serde to 1.0.230 across wo… dana           +14 −14  1d ✓ ○ │                                      │
+ ● stamp  infra#90      Pin terraform provider versions  you            +22 −22  1d ✓ ✓ │   ▄▀▀▀▀▄   Rubber stamp              │
+ ● stamp  web#77        Rename FleetCard props (no beha… omer           +48 −48  5h ◐ ○ │  ▀▀▀▀▀▀▀▀  mechanical change,        │
+─── AI review 2 ────── let an AI agent go over it                                       │  ▄▀▀▀▀▀▀▄  approve as-is             │
+ ● ai     dispatch#1290 Add retry budget to the matcher… lior          +212 −40  2d ✓ ○ │ ▀▀▀▀▀▀▀▀▀▀ asked by dana · 1d        │
+ ● ai     dispatch#1294 Typed config loader for routing… maya         +330 −120  8h ✗ ○ │ ▀▀▀▀▀▀▀▀▀▀                           │
+─── Design review 2 ────── needs a human design review                                  │                                      │
+ ● design billing#431   Split invoice ledger into event… noa         +1840 −610  3d ✓ ✗ │ “lockfile only”                      │
+ ● design infra#88      Move workers to spot node pools  you            +96 −12 20h · ○ │                                      │
+                                                                                        │ Bump serde to 1.0.230 across         │
+                                                                                        │ workspace                            │
+                                                                                        │ acme/api                             │
+                                                                                        │                                      │
+                                                                                        │ author   dana                        │
+                                                                                        │ opened   1d ago                      │
+                                                                                        │ size     +14 −14                     │
+                                                                                        │ ci       ✓ passing                   │
+                                                                                        └──────────────────────────────────────┘
+ ↑↓ move  ⏎ open  c beg  f filter  tab screen  w followed  p people  r refresh  ? help  q quit
 ```
 
 `tab` (or `2`) switches to **My PRs**: your own open PRs in the same orgs, with
@@ -95,35 +95,114 @@ own comments do not count). Opening a PR from this screen, or pressing `x`,
 marks it seen.
 
 ```text
- ↑↓  move   ⏎  open   c  beg/change kind   f  filter   tab  screen   r  refresh   ?  help   q  quit
+ █▀▀▄ █▀▀▄    █▀▀▄ █▀▀▀ ▄▀▀▀ ▄▀▀▀ █▀▀▀ █▀▀▄                    ▄▀▀▀▀▄  Rubber stamp   ▄▀▄▄   AI review      ▄▀▀▄   Design
+ ▀▀▀▀ ▀▀▀▀    ▀▀▀▀ ▀▀▀  ▀ ▀▀ ▀ ▀▀ ▀▀▀  ▀▀▀▀                     ████   1 PR         ▄▀▀██▀▀▄ 0 PRs          █▀▀█   1 PR
+ ▀    ▀ ▀▀    ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀ ▀▀                   ▄▀▀▀▀▀▀▄ just approve ▀▀█▀▀█▀▀ bot reviews   ██████  humans think
+ Begging 7   My PRs 3   Following 4   1 new                   ▀▀▀▀▀▀▀                ▀▀▀▀▀▀               ▀▀▀  ▀▀▀
+─── New activity 1 ────── since you last looked · x marks seen                          ┌ infra#88                           × ┐
+▸● design infra#88      ● Move workers to spot node …    +96 −12  ◆2/5 blocked  20h · ○ │                                      │
+─── My open PRs 2 ──────                                                                │    ▄▀▀▄    Design review             │
+ ● stamp  infra#90        Pin terraform provider ver…    +22 −22  ◇0/1 ready     1d ✓ ✓ │   ▀▀▀▀▀▀   needs a human design      │
+ ○ ?      dispatch#1301   WIP: zone-aware batching      +410 −90     – draft     3h ◐ · │   ▄▀▀▀▀▄   review                    │
+                                                                                        │  ███  ███  asked by you · 19h        │
+                                                                                        │ ▀▀▀    ▀▀▀                           │
+                                                                                        │                                      │
+                                                                                        │ “cost vs. eviction risk tradeoff”    │
+                                                                                        │                                      │
+                                                                                        │ Move workers to spot node pools      │
+                                                                                        │ acme/infra                           │
+                                                                                        │                                      │
+                                                                                        │ author   you                         │
+                                                                                        │ opened   20h ago                     │
+                                                                                        │ size     +96 −12                     │
+                                                                                        │ ci       · no checks                 │
+                                                                                        │ review   ○ 2 pending                 │
+                                                                                        └──────────────────────────────────────┘
+ ↑↓ move  ⏎ open  c beg  f filter  tab screen  x seen  p people  r refresh  ? help  q quit     updated just now · org:Autofleet
+```
 
- █▀▀▄ █▀▀▄    █▀▀▄ █▀▀▀ ▄▀▀▀ ▄▀▀▀ █▀▀▀ █▀▀▄  █▀▀▀▀▀▀▀▀█              █▀▀▀▀▀▀▀▀█              █▀▀▀██▀▀▀█
- ▀▀▀▀ ▀▀▀▀    ▀▀▀▀ ▀▀▀  ▀ ▀▀ ▀ ▀▀ ▀▀▀  ▀▀▀▀  ██▀▀▀▀▀▀██ RUBBER STAMP ██▀▀▀▀▀▀██ AI REVIEW    ███▀▀▀▀███ DESIGN
- ▀    ▀ ▀▀    ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀ ▀▀  ██▀▀▀▀▀▀██ 1 PR         ███▀██▀███ 0 PRs        ███▀▀▀▀███ 1 PR
- 1 BEGGING 7   2 MY PRS 3  ●1 new            █▀▀▀▀▀▀▀▀█ just approve ██▀█▀▀█▀██ bot reviews  ██████████ humans think
- updated just now · org:Autofleet            ███▀██▀███              █▀██▀▀██▀█              █▀▀▀▀▀▀▀▀█
- ▚▞ ● NEW ACTIVITY · 1   new since you last looked · x marks seen             ▛ infra#88 ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▜
-▌ DSIGN  infra#88      ● Move workers to spot node po…  ◆2/5 blocked  20h · ○ ▌ █▀▀▀██▀▀▀█ DESIGN REVIEW             ▐
- ▚▞ MY OPEN PRS · 2                                                           ▌ ███▀▀▀▀███ needs a human design      ▐
-  STAMP  infra#90        Pin terraform provider versi…  ◇0/1 ready     1d ✓ ✓ ▌ ███▀▀▀▀███ review                    ▐
-    ?    dispatch#1301   WIP: zone-aware batching          – draft     3h ◐ · ▌ ██████████ by @you · 19h             ▐
-                                                                              ▌ █▀▀▀▀▀▀▀▀█                           ▐
-                                                                              ▌                                      ▐
-                                                                              ▌ “cost vs. eviction risk tradeoff”    ▐
-                                                                              ▌                                      ▐
-                                                                              ▌ Move workers to spot node pools      ▐
-                                                                              ▌ acme/infra                           ▐
-                                                                              ▌                                      ▐
-                                                                              ▌ author   @you                        ▐
-                                                                              ▌ opened   20h ago                     ▐
-                                                                              ▌ size     +96 -12                     ▐
-                                                                              ▌ ci       · no checks                 ▐
-                                                                              ▌ review   ○ 2 pending                 ▐
+### Following
+
+`tab` again (or `3`) shows **Following**: every open PR, begging or not, by
+people and teams you follow, grouped by author. On the begging board, `w`
+narrows it to PRs from people you follow.
+
+```text
+ █▀▀▄ █▀▀▄    █▀▀▄ █▀▀▀ ▄▀▀▀ ▄▀▀▀ █▀▀▀ █▀▀▄                    ▄▀▀▀▀▄  Rubber stamp   ▄▀▄▄   AI review      ▄▀▀▄   Design
+ ▀▀▀▀ ▀▀▀▀    ▀▀▀▀ ▀▀▀  ▀ ▀▀ ▀ ▀▀ ▀▀▀  ▀▀▀▀                     ████   1 PR         ▄▀▀██▀▀▄ 2 PRs          █▀▀█   1 PR
+ ▀    ▀ ▀▀    ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀ ▀▀                   ▄▀▀▀▀▀▀▄ just approve ▀▀█▀▀█▀▀ bot reviews   ██████  humans think
+ Begging 7   My PRs 3   Following 4   1 new                   ▀▀▀▀▀▀▀                ▀▀▀▀▀▀               ▀▀▀  ▀▀▀
+─── dana 1 ──────                                                                       ┌ api#812                            × ┐
+▸● stamp  api#812       Bump serde to 1.0.230 across workspace          +14 −14  1d ✓ ○ │                                      │
+─── lior 1 ──────                                                                       │   ▄▀▀▀▀▄   Rubber stamp              │
+ ● ai     dispatch#1290 Add retry budget to the matcher client         +212 −40  2d ✓ ○ │  ▀▀▀▀▀▀▀▀  mechanical change,        │
+─── maya 1 ──────                                                                       │  ▄▀▀▀▀▀▀▄  approve as-is             │
+ ● ai     dispatch#1294 Typed config loader for routing service       +330 −120  8h ✗ ○ │ ▀▀▀▀▀▀▀▀▀▀ asked by dana · 1d        │
+─── noa 1 ──────                                                                        │ ▀▀▀▀▀▀▀▀▀▀                           │
+ ● design billing#431   Split invoice ledger into events + projecti… +1840 −610  3d ✓ ✗ │                                      │
+                                                                                        │ “lockfile only”                      │
+                                                                                        │                                      │
+                                                                                        │ Bump serde to 1.0.230 across         │
+                                                                                        │ workspace                            │
+                                                                                        │ acme/api                             │
+                                                                                        │                                      │
+                                                                                        │ author   dana                        │
+                                                                                        │ opened   1d ago                      │
+                                                                                        │ size     +14 −14                     │
+                                                                                        │ ci       ✓ passing                   │
+                                                                                        └──────────────────────────────────────┘
+ ↑↓ move  ⏎ open  c beg  f filter  tab screen  + follow  p people  r refresh  ? help  q quit   updated just now · org:Autofleet
+```
+
+Follow from the TUI with `p` (a small window: `a` add, `d` remove), or press
+`+` on any PR to follow its author. Or from the shell:
+
+```sh
+pr-begger follow omril1 galinareznikk danielmar121   # people
+pr-begger follow Autofleet/dev-ordering              # a team (or teams/dev-ordering, or its URL)
+pr-begger unfollow omril1
+pr-begger following                                  # who you follow
+pr-begger list --following                           # their open PRs, plain text
+```
+
+Names are checked with GitHub before they are saved, so a typo is caught
+right away (a login that does not exist would otherwise break the search).
+Teams are expanded to their current members on every refresh. The list
+lives in `~/.config/pr-begger/follow.toml`, which you can also edit by hand:
+
+```toml
+users = ["danielmar121", "galinareznikk", "omril1"]
+teams = ["Autofleet/dev-ordering"]
+```
+
+```text
+ █▀▀▄ █▀▀▄    █▀▀▄ █▀▀▀ ▄▀▀▀ ▄▀▀▀ █▀▀▀ █▀▀▄
+ ▀▀▀▀ ▀▀▀▀    ▀▀▀▀ ▀▀▀  ▀ ▀▀ ▀ ▀▀ ▀▀▀  ▀▀▀▀
+ ▀    ▀ ▀▀    ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀ ▀▀
+ Begging 7   My PRs 3   Following 4   1 new
+─── dana 1 ────── ┌ People & teams you follow                              × ┐
+▸● stamp  api#812 │                                                          │  +14 −14  1d ✓ ○
+─── lior 1 ────── │   user  dana                                             │
+ ● ai     dispatch│ ▸ user  lior                                             │ +212 −40  2d ✓ ○
+─── maya 1 ────── │   user  maya                                             │
+ ● ai     dispatch│   user  noa                                              │+330 −120  8h ✗ ○
+─── noa 1 ──────  │   team  acme/dev-ordering                                │
+ ● design billing#│                                                          │1840 −610  3d ✓ ✗
+                  │   add: galinareznikk▏                                    │
+                  │   login, org/team, teams/<team>, or a GitHub URL         │
+                  │   enter add · esc cancel                                 │
+                  │                                                          │
+                  │                                                          │
+                  └──────────────────────────────────────────────────────────┘
+
+
+
+ ↑↓ move  ⏎ open  c beg  f filter  tab screen  + follow  p people  r refresh  ? help  q quit
 ```
 
 (These are the real renderer's output for demo data:
 `cargo test print_screens -- --ignored --nocapture`, with `W`/`H` env vars for
-the size. In a terminal the sprites and chips are in colour.)
+the size. In a terminal the icons, dots and title bars are in soft pastels.)
 
 ### Keys
 
@@ -133,8 +212,11 @@ the size. In a terminal the sprites and chips are in colour.)
 | `enter` / `o` | open the PR in your browser |
 | `c` / `b` | beg: set or change the CR kind of the selected PR (posts as you) |
 | `f` / `F` | filter by kind (cycles all → stamp → ai → design) |
-| `tab`, `1`, `2` | begging board / my PRs |
+| `tab`, `1`, `2`, `3` | begging board / my PRs / following |
 | `x` | mark a PR's activity as seen |
+| `p` | people & teams you follow (`a` add, `d` remove) |
+| `+` | follow the selected PR's author |
+| `w` | board: only PRs by people you follow |
 | `r` | refresh now (it also refreshes every `refresh_secs`) |
 | `?` | help and the glyph legend |
 | `q` / `esc` | quit |
@@ -147,8 +229,9 @@ monochrome too.
 ### Plain output
 
 ```sh
-pr-begger list          # the board, one line per PR
-pr-begger list --mine   # your PRs
+pr-begger list              # the board, one line per PR
+pr-begger list --mine       # your PRs
+pr-begger list --following  # PRs by people/teams you follow
 ```
 
 ## Config
@@ -164,8 +247,11 @@ refresh_secs = 180            # auto-refresh while the TUI is open (0 = off)
 max_prs = 200                 # cap per org/repo search
 ```
 
-`--org X` and `--repo owner/name` (both repeatable) replace the file's scope
-for one run, e.g. `pr-begger --repo saar-autofleet/pr-begger`.
+**Which repos.** By default every repo in the `Autofleet` org is covered, so
+`Autofleet/autorepo` is already on the board, in My PRs and in Following. Add
+`repos = ["someone/else"]` for repos outside your orgs. `--org X` and
+`--repo owner/name` (both repeatable) *replace* the file's scope for one run,
+e.g. `pr-begger --repo Autofleet/autorepo` shows only that repo.
 
 ## How it works
 

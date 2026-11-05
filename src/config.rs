@@ -127,6 +127,14 @@ pub fn config_path() -> Option<PathBuf> {
     xdg("XDG_CONFIG_HOME", ".config").map(|d| d.join("config.toml"))
 }
 
+/// `follow.toml` lives next to the config file.
+pub fn follow_path(config: Option<&Path>) -> Option<PathBuf> {
+    config
+        .and_then(Path::parent)
+        .map(|d| d.join("follow.toml"))
+        .or_else(|| xdg("XDG_CONFIG_HOME", ".config").map(|d| d.join("follow.toml")))
+}
+
 pub fn cache_dir() -> Option<PathBuf> {
     xdg("XDG_CACHE_HOME", ".cache")
 }

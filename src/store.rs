@@ -19,6 +19,12 @@ pub struct Snapshot {
     pub board_at: Option<DateTime<Utc>>,
     pub mine: Vec<Pr>,
     pub mine_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub following: Vec<Pr>,
+    #[serde(default)]
+    pub following_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub followed_authors: Vec<String>,
 }
 
 fn read<T: DeserializeOwned>(path: &Path) -> Option<T> {

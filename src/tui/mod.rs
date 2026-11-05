@@ -13,6 +13,7 @@ use chrono::{DateTime, Utc};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 use crate::config::{self, Config};
+use crate::follow::{FollowFile, Follows, Who};
 use crate::github::Client;
 use crate::kind::Kind;
 use crate::model::{Pr, Request};
@@ -27,13 +28,17 @@ const POST_GRACE: Duration = Duration::from_secs(180);
 pub enum Screen {
     Board,
     Mine,
+    Following,
 }
 
 impl Screen {
-    fn idx(self) -> usize {
+    pub const ALL: [Screen; 3] = [Screen::Board, Screen::Mine, Screen::Following];
+
+    pub fn idx(self) -> usize {
         match self {
             Screen::Board => 0,
             Screen::Mine => 1,
+            Screen::Following => 2,
         }
     }
 }
@@ -41,6 +46,16 @@ impl Screen {
 pub enum Popup {
     Help,
     Pick(Box<Picker>),
+    Follows(FollowEditor),
+}
+
+/// The `p` window: who you follow, with add/remove.
+#[derive(Default)]
+pub struct FollowEditor {
+    pub cursor: usize,
+    /// `Some` while typing a new user or team.
+    pub input: Option<String>,
+    pub checking: bool,
 }
 
 pub struct Picker {
@@ -52,6 +67,9 @@ pub struct Picker {
 pub enum Msg {
     Board(Result<Vec<Pr>, String>),
     Mine(Result<Vec<Pr>, String>),
+    Following(Result<(Vec<Pr>, Vec<String>), String>),
+    /// A user/team typed into the follow editor, checked against GitHub.
+    FollowChecked(Result<(Who, String), String>),
     Posted {
         pr: Box<Pr>,
         kind: Kind,
@@ -79,10 +97,19 @@ pub struct App {
     pub mine_at: Option<DateTime<Utc>>,
     pub loading_board: bool,
     pub loading_mine: bool,
+    pub follow_file: FollowFile,
+    pub follows: Follows,
+    pub following: Vec<Pr>,
+    pub following_at: Option<DateTime<Utc>>,
+    pub loading_following: bool,
+    /// Lowercased logins of followed people and followed teams' members.
+    pub followed_authors: HashSet<String>,
+    /// Board shows only PRs by followed authors.
+    pub only_followed: bool,
     last_fetch: Instant,
     pub filter: Option<Kind>,
-    pub cursor: [usize; 2],
-    pub scroll: [usize; 2],
+    pub cursor: [usize; 3],
+    pub scroll: [usize; 3],
     pub popup: Option<Popup>,
     pub new_keys: HashSet<String>,
     posted: HashMap<String, (Pr, Instant)>,
@@ -110,7 +137,12 @@ impl App {
         tx: Sender<Msg>,
         cache: Cache,
         seen: Seen,
+        follow_file: FollowFile,
     ) -> Self {
+        let (follows, follow_err) = match follow_file.load() {
+            Ok(f) => (f, None),
+            Err(e) => (Follows::default(), Some(format!("{e:#}"))),
+        };
         let mut app = App {
             cfg,
             client,
@@ -124,10 +156,17 @@ impl App {
             mine_at: None,
             loading_board: false,
             loading_mine: false,
+            follow_file,
+            follows,
+            following: Vec::new(),
+            following_at: None,
+            loading_following: false,
+            followed_authors: HashSet::new(),
+            only_followed: false,
             last_fetch: Instant::now(),
             filter: None,
-            cursor: [0, 0],
-            scroll: [0, 0],
+            cursor: [0; 3],
+            scroll: [0; 3],
             popup: None,
             new_keys: HashSet::new(),
             posted: HashMap::new(),
@@ -141,6 +180,12 @@ impl App {
             app.set_mine(snap.mine);
             app.mine_at = snap.mine_at;
             sort_prs(&mut app.board);
+            app.followed_authors = snap.followed_authors.into_iter().collect();
+            app.set_following(snap.following);
+            app.following_at = snap.following_at;
+        }
+        if let Some(e) = follow_err {
+            app.say(format!("follow list: {e}"), true);
         }
         app
     }
@@ -150,7 +195,7 @@ impl App {
     }
 
     pub fn loading(&self) -> bool {
-        self.loading_board || self.loading_mine
+        self.loading_board || self.loading_mine || self.loading_following
     }
 
     fn say(&mut self, text: impl Into<String>, error: bool) {
@@ -176,11 +221,71 @@ impl App {
         }
         if !self.loading_mine {
             self.loading_mine = true;
-            let (cfg, tx) = (self.cfg.clone(), self.tx.clone());
+            let (c, cfg, tx) = (client.clone(), self.cfg.clone(), self.tx.clone());
             std::thread::spawn(move || {
-                let r = client.fetch_mine(&cfg).map_err(|e| format!("{e:#}"));
+                let r = c.fetch_mine(&cfg).map_err(|e| format!("{e:#}"));
                 let _ = tx.send(Msg::Mine(r));
             });
+        }
+        self.refresh_following();
+    }
+
+    fn refresh_following(&mut self) {
+        let Some(client) = self.client.clone() else {
+            return;
+        };
+        if self.loading_following {
+            return;
+        }
+        if self.follows.is_empty() {
+            self.following.clear();
+            self.followed_authors.clear();
+            self.following_at = Some(Utc::now());
+            return;
+        }
+        self.loading_following = true;
+        let (cfg, follows, tx) = (self.cfg.clone(), self.follows.clone(), self.tx.clone());
+        std::thread::spawn(move || {
+            let r = client
+                .fetch_following(&cfg, &follows)
+                .map_err(|e| format!("{e:#}"));
+            let _ = tx.send(Msg::Following(r));
+        });
+    }
+
+    /// Following order: grouped by author (alphabetical), newest first.
+    fn set_following(&mut self, mut prs: Vec<Pr>) {
+        prs.sort_by(|a, b| {
+            a.author
+                .to_lowercase()
+                .cmp(&b.author.to_lowercase())
+                .then(b.created_at.cmp(&a.created_at))
+        });
+        self.following = prs;
+    }
+
+    fn save_follows(&mut self) {
+        if let Err(e) = self.follow_file.save(&self.follows) {
+            self.say(format!("could not save follow list: {e:#}"), true);
+        }
+    }
+
+    fn follow(&mut self, who: Who, desc: &str) {
+        if self.follows.add(&who) {
+            self.save_follows();
+            self.say(format!("following {desc}"), false);
+            self.loading_following = false;
+            self.refresh_following();
+        } else {
+            self.say(format!("already following {who}"), false);
+        }
+    }
+
+    fn unfollow(&mut self, who: &Who) {
+        if self.follows.remove(who) {
+            self.save_follows();
+            self.say(format!("unfollowed {who}"), false);
+            self.refresh_following();
         }
     }
 
@@ -207,6 +312,9 @@ impl App {
             board_at: self.board_at,
             mine: self.mine.clone(),
             mine_at: self.mine_at,
+            following: self.following.clone(),
+            following_at: self.following_at,
+            followed_authors: self.followed_authors.iter().cloned().collect(),
         });
     }
 
@@ -242,6 +350,27 @@ impl App {
                 self.mine_at = Some(Utc::now());
                 self.clamp();
                 self.snapshot();
+            }
+            Msg::Following(Ok((prs, authors))) => {
+                self.loading_following = false;
+                self.followed_authors = authors.iter().map(|a| a.to_lowercase()).collect();
+                self.set_following(prs);
+                self.following_at = Some(Utc::now());
+                self.clamp();
+                self.snapshot();
+            }
+            Msg::Following(Err(e)) => {
+                self.loading_following = false;
+                self.say(format!("following refresh failed: {e}"), true);
+            }
+            Msg::FollowChecked(r) => {
+                if let Some(Popup::Follows(ed)) = &mut self.popup {
+                    ed.checking = false;
+                }
+                match r {
+                    Ok((who, desc)) => self.follow(who, &desc),
+                    Err(e) => self.say(e, true),
+                }
             }
             Msg::Board(Err(e)) => {
                 self.loading_board = false;
@@ -291,17 +420,27 @@ impl App {
 
     /// The PRs the current screen lists, in display order.
     pub fn items(&self) -> Vec<&Pr> {
+        let by_kind = |p: &&Pr| self.filter.is_none() || p.kind() == self.filter;
         match self.screen {
             Screen::Board => self
                 .board
                 .iter()
-                .filter(|p| self.filter.is_none() || p.kind() == self.filter)
+                .filter(by_kind)
+                .filter(|p| {
+                    !self.only_followed || self.followed_authors.contains(&p.author.to_lowercase())
+                })
                 .collect(),
-            Screen::Mine => self
-                .mine
-                .iter()
-                .filter(|p| self.filter.is_none() || p.kind() == self.filter)
-                .collect(),
+            Screen::Mine => self.mine.iter().filter(by_kind).collect(),
+            Screen::Following => self.following.iter().filter(by_kind).collect(),
+        }
+    }
+
+    /// The list a screen draws from, before filters (for counts).
+    pub fn list(&self, screen: Screen) -> &[Pr] {
+        match screen {
+            Screen::Board => &self.board,
+            Screen::Mine => &self.mine,
+            Screen::Following => &self.following,
         }
     }
 
@@ -314,7 +453,7 @@ impl App {
     }
 
     fn clamp(&mut self) {
-        for screen in [Screen::Board, Screen::Mine] {
+        for screen in Screen::ALL {
             let saved = self.screen;
             self.screen = screen;
             let n = self.items().len();
@@ -368,8 +507,8 @@ impl App {
             (i + 1) % order.len()
         };
         self.filter = order[next];
-        self.cursor = [0, 0];
-        self.scroll = [0, 0];
+        self.cursor = [0; 3];
+        self.scroll = [0; 3];
     }
 
     fn start_pick(&mut self) {
@@ -457,6 +596,10 @@ impl App {
                 }
                 return;
             }
+            Some(Popup::Follows(ed)) => {
+                self.follow_editor_key(ed, key);
+                return;
+            }
             None => {}
         }
         let page = page.max(1) as isize;
@@ -475,14 +618,24 @@ impl App {
             }
             KeyCode::Home | KeyCode::Char('g') => self.cursor[self.screen.idx()] = 0,
             KeyCode::End | KeyCode::Char('G') => self.move_by(isize::MAX / 2),
-            KeyCode::Tab | KeyCode::BackTab => {
-                self.screen = match self.screen {
-                    Screen::Board => Screen::Mine,
-                    Screen::Mine => Screen::Board,
-                }
-            }
+            KeyCode::Tab => self.screen = Screen::ALL[(self.screen.idx() + 1) % 3],
+            KeyCode::BackTab => self.screen = Screen::ALL[(self.screen.idx() + 2) % 3],
             KeyCode::Char('1') => self.screen = Screen::Board,
             KeyCode::Char('2') => self.screen = Screen::Mine,
+            KeyCode::Char('3') => self.screen = Screen::Following,
+            KeyCode::Char('p') => self.popup = Some(Popup::Follows(FollowEditor::default())),
+            KeyCode::Char('w') => {
+                self.only_followed = !self.only_followed;
+                self.cursor[0] = 0;
+                if self.only_followed && self.followed_authors.is_empty() {
+                    self.say("you follow nobody yet: p to add people or teams", false);
+                }
+            }
+            KeyCode::Char('+') => {
+                if let Some(pr) = self.selected().cloned() {
+                    self.follow(Who::User(pr.author.clone()), &pr.author);
+                }
+            }
             KeyCode::Char('f') => self.cycle_filter(false),
             KeyCode::Char('F') => self.cycle_filter(true),
             KeyCode::Enter | KeyCode::Char('o') => self.open_selected(),
@@ -499,6 +652,69 @@ impl App {
             }
             _ => {}
         }
+    }
+}
+
+impl App {
+    fn follow_editor_key(&mut self, mut ed: FollowEditor, key: KeyEvent) {
+        let entries = self.follows.all();
+        if let Some(mut input) = ed.input.take() {
+            match key.code {
+                KeyCode::Esc => {}
+                KeyCode::Enter => {
+                    let org = self.cfg.orgs.first().cloned();
+                    match Who::parse(&input, org.as_deref()) {
+                        Ok(who) => match self.client.clone() {
+                            Some(client) => {
+                                ed.checking = true;
+                                self.say(format!("checking {who}…"), false);
+                                let tx = self.tx.clone();
+                                std::thread::spawn(move || {
+                                    let r = client.check(&who).map_err(|e| format!("{e:#}"));
+                                    let _ = tx.send(Msg::FollowChecked(r));
+                                });
+                            }
+                            None => self.say("no GitHub token", true),
+                        },
+                        Err(e) => {
+                            self.say(format!("{e:#}"), true);
+                            ed.input = Some(input);
+                        }
+                    }
+                }
+                KeyCode::Backspace => {
+                    input.pop();
+                    ed.input = Some(input);
+                }
+                KeyCode::Char(ch) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    if input.len() < 120 {
+                        input.push(ch);
+                    }
+                    ed.input = Some(input);
+                }
+                _ => ed.input = Some(input),
+            }
+            self.popup = Some(Popup::Follows(ed));
+            return;
+        }
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('p') => return,
+            KeyCode::Down | KeyCode::Char('j') => {
+                ed.cursor = (ed.cursor + 1).min(entries.len().saturating_sub(1))
+            }
+            KeyCode::Up | KeyCode::Char('k') => ed.cursor = ed.cursor.saturating_sub(1),
+            KeyCode::Char('a') | KeyCode::Char('+') | KeyCode::Char('i') => {
+                ed.input = Some(String::new())
+            }
+            KeyCode::Char('d') | KeyCode::Char('x') | KeyCode::Char('-') | KeyCode::Delete => {
+                if let Some(who) = entries.get(ed.cursor) {
+                    self.unfollow(&who.clone());
+                    ed.cursor = ed.cursor.min(entries.len().saturating_sub(2));
+                }
+            }
+            _ => {}
+        }
+        self.popup = Some(Popup::Follows(ed));
     }
 }
 
@@ -520,14 +736,14 @@ fn open_url(url: &str) -> std::io::Result<()> {
         .map(|_| ())
 }
 
-pub fn run(cfg: Config) -> Result<()> {
+pub fn run(cfg: Config, follow_file: FollowFile) -> Result<()> {
     // Resolve the token before taking over the terminal, so a missing login
     // is a plain error message rather than a broken screen.
     let client = Arc::new(Client::from_env()?);
     let (tx, rx): (Sender<Msg>, Receiver<Msg>) = mpsc::channel();
     let cache = Cache::new(config::cache_dir());
     let seen = Seen::load(config::state_dir());
-    let mut app = App::new(cfg, Some(client), tx, cache, seen);
+    let mut app = App::new(cfg, Some(client), tx, cache, seen, follow_file);
     app.refresh();
 
     let mut terminal = ratatui::init();
@@ -572,36 +788,18 @@ mod tests {
 
     fn app_with(prs: Vec<Pr>) -> App {
         let (tx, _rx) = mpsc::channel();
-        let mut app = App {
-            cfg: Config::default(),
-            client: None,
+        let mut app = App::new(
+            Config::default(),
+            None,
             tx,
-            cache: Cache::new(None),
-            seen: Seen::in_memory(),
-            screen: Screen::Board,
-            board: Vec::new(),
-            mine: Vec::new(),
-            board_at: None,
-            mine_at: None,
-            loading_board: false,
-            loading_mine: false,
-            last_fetch: Instant::now(),
-            filter: None,
-            cursor: [0, 0],
-            scroll: [0, 0],
-            popup: None,
-            new_keys: HashSet::new(),
-            posted: HashMap::new(),
-            status: None,
-            tick: 0,
-            quit: false,
-        };
+            Cache::new(None),
+            Seen::in_memory(),
+            FollowFile::new(None),
+        );
         app.on_msg(Msg::Board(Ok(prs.clone())));
-        // pretend you last looked at infra#88 before its newest review comment
-        if let Some(pr) = prs.iter().find(|p| p.number == 88) {
-            app.seen.mark(pr, pr.created_at);
-        }
-        app.on_msg(Msg::Mine(Ok(prs)));
+        app.on_msg(Msg::Mine(Ok(prs.clone())));
+        let authors = prs.iter().map(|p| p.author.clone()).collect();
+        app.on_msg(Msg::Following(Ok((prs, authors))));
         app
     }
 
@@ -696,16 +894,78 @@ mod tests {
     }
 
     #[test]
+    fn tab_cycles_three_screens() {
+        let mut app = app_with(sample());
+        for want in [Screen::Mine, Screen::Following, Screen::Board] {
+            app.on_key(KeyEvent::from(KeyCode::Tab), 10);
+            assert_eq!(app.screen, want);
+        }
+        app.on_key(KeyEvent::from(KeyCode::BackTab), 10);
+        assert_eq!(app.screen, Screen::Following);
+    }
+
+    #[test]
+    fn following_groups_by_author_and_board_can_filter_to_followed() {
+        let mut app = app_with(sample());
+        app.screen = Screen::Following;
+        let authors: Vec<_> = app.items().iter().map(|p| p.author.clone()).collect();
+        let mut sorted = authors.clone();
+        sorted.sort_by_key(|a| a.to_lowercase());
+        assert_eq!(authors, sorted);
+
+        app.screen = Screen::Board;
+        app.followed_authors = ["alice".to_string()].into_iter().collect();
+        app.on_key(KeyEvent::from(KeyCode::Char('w')), 10);
+        assert!(app.only_followed);
+        assert!(app.items().iter().all(|p| p.author == "alice"));
+        assert_eq!(app.items().len(), 1);
+    }
+
+    #[test]
+    fn follow_editor_adds_and_removes() {
+        let mut app = app_with(sample());
+        // `+` follows the selected PR's author without asking GitHub
+        app.on_key(KeyEvent::from(KeyCode::Char('+')), 10);
+        let first = app.board[0].author.clone();
+        assert_eq!(app.follows.users, vec![first.clone()]);
+        // the editor removes it again
+        app.on_key(KeyEvent::from(KeyCode::Char('p')), 10);
+        assert!(matches!(app.popup, Some(Popup::Follows(_))));
+        app.on_key(KeyEvent::from(KeyCode::Char('d')), 10);
+        assert!(app.follows.users.is_empty());
+        // typing a bad name keeps the input open with an error
+        app.on_key(KeyEvent::from(KeyCode::Char('a')), 10);
+        for ch in "a b".chars() {
+            app.on_key(KeyEvent::from(KeyCode::Char(ch)), 10);
+        }
+        app.on_key(KeyEvent::from(KeyCode::Enter), 10);
+        match &app.popup {
+            Some(Popup::Follows(ed)) => assert_eq!(ed.input.as_deref(), Some("a b")),
+            _ => panic!("editor closed"),
+        }
+        assert!(app.status.as_ref().unwrap().error);
+        app.on_key(KeyEvent::from(KeyCode::Esc), 10);
+        app.on_key(KeyEvent::from(KeyCode::Esc), 10);
+        assert!(app.popup.is_none());
+    }
+
+    #[test]
     fn renders_without_panicking_at_many_sizes() {
         use ratatui::backend::TestBackend;
         use ratatui::Terminal;
         let mut app = app_with(sample());
         for (w, h) in [(20, 5), (60, 15), (100, 30), (160, 50)] {
-            for screen in [Screen::Board, Screen::Mine] {
+            for screen in Screen::ALL {
                 app.screen = screen;
-                for popup in [0, 1, 2] {
+                for popup in [0, 1, 2, 3, 4] {
                     app.popup = match popup {
                         1 => Some(Popup::Help),
+                        3 => Some(Popup::Follows(FollowEditor::default())),
+                        4 => Some(Popup::Follows(FollowEditor {
+                            cursor: 0,
+                            input: Some("someone".into()),
+                            checking: true,
+                        })),
                         2 => Some(Popup::Pick(Box::new(Picker {
                             pr: app.board[0].clone(),
                             choice: 2,
@@ -743,6 +1003,7 @@ mod screens {
             tx,
             Cache::new(None),
             Seen::in_memory(),
+            FollowFile::new(None),
         );
         let prs = parse_search_response(include_str!("../../tests/fixtures/demo.json")).unwrap();
         app.on_msg(Msg::Board(Ok(prs
@@ -767,8 +1028,31 @@ mod screens {
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(24);
-        for screen in [Screen::Board, Screen::Mine] {
+        let followed = ["dana", "lior", "maya", "noa"];
+        for u in followed {
+            app.follows.add(&Who::User(u.into()));
+        }
+        app.follows.add(&Who::Team {
+            org: "acme".into(),
+            slug: "dev-ordering".into(),
+        });
+        app.on_msg(Msg::Following(Ok((
+            prs.iter()
+                .filter(|p| followed.contains(&p.author.as_str()))
+                .cloned()
+                .collect(),
+            followed.iter().map(|s| s.to_string()).collect(),
+        ))));
+        let popup = std::env::var("POPUP").is_ok();
+        for screen in Screen::ALL {
             app.screen = screen;
+            if popup && screen == Screen::Following {
+                app.popup = Some(Popup::Follows(FollowEditor {
+                    cursor: 1,
+                    input: Some("galinareznikk".into()),
+                    checking: false,
+                }));
+            }
             let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
             t.draw(|f| {
                 view::draw(f, &mut app);
