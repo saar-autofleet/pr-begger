@@ -319,7 +319,10 @@ mod preview {
             Seen::in_memory(),
             FollowFile::new(None),
         );
-        let width: u16 = std::env::var("W").ok().and_then(|v| v.parse().ok()).unwrap_or(160);
+        let width: u16 = std::env::var("W")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(160);
         for l in lines(&app, width).iter().take(12) {
             let row = l.split('\t').nth(1).unwrap_or("");
             let mut out = String::new();
