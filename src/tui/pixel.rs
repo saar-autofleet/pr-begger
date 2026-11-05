@@ -30,7 +30,8 @@ pub mod pal {
     pub const MINT_DARK: Color = Color::Rgb(108, 172, 136);
     pub const SKY_DARK: Color = Color::Rgb(108, 148, 198);
     pub const LILAC_DARK: Color = Color::Rgb(148, 128, 184);
-    /// Pixel-art outline: a deep plum-grey, softer than black.
+    pub const BUTTER_DARK: Color = Color::Rgb(217, 187, 92);
+    /// Deep plum-grey: pupils, and text-dump detection of dark pixels.
     pub const OUTLINE: Color = Color::Rgb(92, 84, 112);
     /// Text on pastel backgrounds.
     pub const INK: Color = Color::Rgb(45, 40, 60);
@@ -156,115 +157,120 @@ pub fn banner(text: &str) -> Bitmap {
     out
 }
 
+/// Mid-tone shades rather than the palest pastels, so the title still
+/// reads on light terminals.
 fn gradient(y: usize) -> Color {
     match y {
-        0 | 1 => pal::SKY,
-        2 => pal::LILAC,
-        _ => pal::PINK,
+        0 | 1 => pal::SKY_DARK,
+        2 => pal::LILAC_DARK,
+        _ => pal::ROSE,
     }
 }
 
-// Icons are drawn EGA-style: a dark outline (k), a base pastel, a lighter
-// highlight and a darker shade per material. Upper case is the shade.
+// Icons are drawn without outlines (at this size an outline eats the
+// shape); each material has a base pastel, a darker shade on its right and
+// bottom edges, and a cream highlight. Upper case is the shade.
 //
-//   k outline      w cream highlight
-//   h/H wood       r/R rubber (rose)    g/G ink (mint)
-//   b/B robot      e eye glow           y bulb / pencil wood
-//   o/O hinge      l/L legs (lilac)     p pencil (pink)   s steel
+//   w cream highlight   h/H wood    r/R rubber    g/G ink
+//   b/B robot           e eye glow  k pupil       s steel
+//   y/Y bulb            l/L lilac
 
-// Detail-window icons: 10×9 square pixels, 20 columns × 9 rows.
+// Detail-window icons: 10×10 square pixels, 20 columns × 10 rows.
 
-const STAMP: [&str; 9] = [
-    "...kkkk...", //
-    "..kwhhHk..", //
-    "..khhhHk..", //
-    "...khHk...", //
-    "..kkhHkk..", //
-    ".krrrrrRk.", //
-    "kwrrrrrrRk", //
-    ".kkkkkkkk.", //
-    "g.gG.Gg.gG", //
+const STAMP: [&str; 10] = [
+    "...whhH...", //
+    "..whhhhH..", //
+    "...hhhH...", //
+    "....hH....", //
+    "....hH....", //
+    "..rrrrrR..", //
+    ".wrrrrrrR.", //
+    ".RRRRRRRR.", //
+    "..........", //
+    ".g.gG.gGg.", //
 ];
 
-const ROBOT: [&str; 9] = [
-    "....ky....", //
-    "....kk....", //
-    ".kkkkkkkk.", //
-    "kbwbbbbbBk", //
-    "kbekbbekBk", //
-    "kbbbbbbbBk", //
-    "kbskskskBk", //
-    ".kBBBBBBk.", //
-    "..kk..kk..", //
+const ROBOT: [&str; 10] = [
+    "..........", //
+    "....yY....", //
+    ".....s....", //
+    ".bbbbbbbB.", //
+    ".bwbbbbbB.", //
+    "sbekbbekBs", //
+    "sbrbbbbrBs", //
+    ".bsbsbsbB.", //
+    ".BBBBBBBB.", //
+    "..BB..BB..", //
 ];
 
-const COMPASS: [&str; 9] = [
-    "....kk....", //
-    "...kwoOk..", //
-    "...kOOOk..", //
-    "....klk...", //
-    "...kl.Lk..", //
-    "..kl...Lk.", //
-    "..kl...pk.", //
-    ".kl.....yk", //
-    ".s.......k", //
+const COMPASS: [&str; 10] = [
+    "....hH....", //
+    "...whhH...", //
+    "....hH....", //
+    "....lL....", //
+    "...lL.L...", //
+    "...lL.L...", //
+    "..lL...L..", //
+    "..lL...rR.", //
+    ".lL.....y.", //
+    ".s..bbb.b.", //
 ];
 
-const QUESTION: [&str; 9] = [
-    "..kkkkk...", //
-    ".kwlllLk..", //
-    ".kLk.kLk..", //
-    "....klLk..", //
-    "...klLk...", //
-    "...kLk....", //
-    "....k.....", //
-    "...klk....", //
-    "...kLk....", //
+const QUESTION: [&str; 10] = [
+    "..........", //
+    "..llllL...", //
+    ".lwLLLLL..", //
+    ".lL...lL..", //
+    "......lL..", //
+    ".....lL...", //
+    "....lL....", //
+    "....lL....", //
+    "..........", //
+    "....lL....", //
 ];
 
-// Header legend icons: 6×5 square pixels, 12 columns × 5 rows.
+// Header legend icons: 7×5 square pixels, 14 columns × 5 rows.
 
 const MINI_STAMP: [&str; 5] = [
-    ".kwhHk", //
-    "..khk.", //
-    "krrrRk", //
-    "kkkkkk", //
-    "g.gG.g", //
+    "..whH..", //
+    "..hhH..", //
+    "...H...", //
+    ".rrrrR.", //
+    ".RRRRR.", //
 ];
 
 const MINI_ROBOT: [&str; 5] = [
-    "..ky..", //
-    ".kkkk.", //
-    "kebbeB", //
-    "kbsssB", //
-    ".kBBk.", //
+    "...y...", //
+    ".bbbbB.", //
+    "sbebeBs", //
+    ".bsssB.", //
+    ".BB.BB.", //
 ];
 
 const MINI_COMPASS: [&str; 5] = [
-    "..kOk.", //
-    "..klk.", //
-    ".kl.Lk", //
-    ".kl.pk", //
-    ".s...y", //
+    "...hH..", //
+    "...lL..", //
+    "..lL.L.", //
+    ".lL..rR", //
+    ".s.bb.y", //
 ];
 
 fn sprite_color(ch: char) -> Option<Color> {
     Some(match ch {
-        'k' => pal::OUTLINE,
         'w' => pal::CREAM,
-        'h' | 'o' => pal::PEACH,
-        'H' | 'O' => pal::PEACH_DARK,
+        'h' => pal::PEACH,
+        'H' => pal::PEACH_DARK,
         'r' => pal::PINK,
         'R' => pal::ROSE,
-        'g' => pal::MINT,
+        'g' | 'e' => pal::MINT,
         'G' => pal::MINT_DARK,
         'b' => pal::SKY,
         'B' => pal::SKY_DARK,
-        'e' => pal::MINT,
+        'k' => pal::OUTLINE,
         'y' => pal::BUTTER,
+        'Y' => pal::BUTTER_DARK,
         'l' => pal::LILAC,
         'L' => pal::LILAC_DARK,
-        'p' => pal::ROSE,
         's' => pal::FADE,
         _ => return None,
     })
@@ -298,10 +304,10 @@ mod tests {
     #[test]
     fn icon_sizes() {
         for k in Kind::ALL {
-            assert_eq!(icon(Some(k)).cells(), (20, 9), "{k}");
-            assert_eq!(mini(k).cells(), (12, 5), "{k}");
+            assert_eq!(icon(Some(k)).cells(), (20, 10), "{k}");
+            assert_eq!(mini(k).cells(), (14, 5), "{k}");
         }
-        assert_eq!(icon(None).cells(), (20, 9));
+        assert_eq!(icon(None).cells(), (20, 10));
     }
 
     #[test]
@@ -310,7 +316,7 @@ mod tests {
             assert!(rows.iter().all(|r| r.chars().count() == 10), "{rows:?}");
         }
         for rows in [MINI_STAMP, MINI_ROBOT, MINI_COMPASS] {
-            assert!(rows.iter().all(|r| r.chars().count() == 6), "{rows:?}");
+            assert!(rows.iter().all(|r| r.chars().count() == 7), "{rows:?}");
         }
         // every pixel letter has a colour
         for rows in [
@@ -335,6 +341,29 @@ mod tests {
     fn banner_is_five_rows() {
         let b = banner("PR BEGGER");
         assert_eq!(b.cells(), (42, 5));
+    }
+
+    /// `cargo test export_icons -- --ignored --nocapture` prints every icon
+    /// as JSON (`ICONS [...]`) for rendering a colour preview outside the
+    /// terminal.
+    #[test]
+    #[ignore]
+    fn export_icons() {
+        let hex = |c: Option<Color>| match c {
+            Some(Color::Rgb(r, g, b)) => serde_json::json!(format!("#{r:02x}{g:02x}{b:02x}")),
+            _ => serde_json::Value::Null,
+        };
+        let dump = |name: &str, b: &Bitmap| {
+            let rows: Vec<Vec<serde_json::Value>> = (0..b.h)
+                .map(|y| (0..b.w).map(|x| hex(b.get(x, y))).collect())
+                .collect();
+            serde_json::json!({ "name": name, "px_w": b.px_w, "rows": rows })
+        };
+        let mut all = vec![dump("banner", &banner("PR BEGGER"))];
+        all.extend(Kind::ALL.map(|k| dump(k.id(), &mini(k))));
+        all.extend(Kind::ALL.map(|k| dump(k.id(), &icon(Some(k)))));
+        all.push(dump("unknown", &icon(None)));
+        println!("ICONS {}", serde_json::to_string(&all).unwrap());
     }
 
     #[test]

@@ -269,44 +269,58 @@ fn draw_compact_header(f: &mut Frame, app: &App, area: Rect) {
 /// A small icon per kind with its count, like a 90s desktop shortcut row.
 /// With a filter on, the other kinds fade.
 fn draw_legend(f: &mut Frame, app: &App, area: Rect) {
-    const ENTRY_W: u16 = 26;
-    if area.width < ENTRY_W * 3 || area.height < 5 {
+    // full: icon, name, count, blurb; compact: icon, short name, count
+    const FULL_W: u16 = 28;
+    const COMPACT_W: u16 = 22;
+    let entry_w = if area.width >= FULL_W * 3 {
+        FULL_W
+    } else if area.width >= COMPACT_W * 3 {
+        COMPACT_W
+    } else {
+        return;
+    };
+    if area.height < 5 {
         return;
     }
+    let full = entry_w == FULL_W;
     let list = app.list(app.screen);
     // right-aligned, so a long tab row (new count, filter) does not run into it
-    let w = ENTRY_W * 3;
+    let w = entry_w * 3;
     let area = Rect::new(area.right() - w, area.y, w, area.height.min(5));
     for (i, k) in Kind::ALL.into_iter().enumerate() {
-        let x = area.x + i as u16 * ENTRY_W;
-        let r = Rect::new(x, area.y, ENTRY_W.min(area.right() - x), area.height);
+        let x = area.x + i as u16 * entry_w;
+        let r = Rect::new(x, area.y, entry_w.min(area.right() - x), area.height);
         let faded = app.filter.is_some_and(|fk| fk != k);
         if !faded {
             pixel::mini(k).render(r.x, r.y, r, f.buffer_mut());
         }
         let count = list.iter().filter(|p| p.kind() == Some(k)).count();
-        let name = match k {
-            Kind::RubberStamp => "Rubber stamp",
-            Kind::Ai => "AI review",
-            Kind::Design => "Design",
+        let name = match (k, full) {
+            (Kind::RubberStamp, true) => "Rubber stamp",
+            (Kind::RubberStamp, false) => "Stamp",
+            (Kind::Ai, true) => "AI review",
+            (Kind::Ai, false) => "AI",
+            (Kind::Design, _) => "Design",
         };
         let style = if faded { muted() } else { Style::new() };
-        let text = vec![
+        let mut text = vec![
             Line::from(Span::styled(name, style)),
             Line::from(vec![
                 Span::styled(format!("{count}"), style.bold()),
                 Span::styled(if count == 1 { " PR" } else { " PRs" }, muted()),
             ]),
-            Line::from(Span::styled(
+        ];
+        if full {
+            text.push(Line::from(Span::styled(
                 match k {
                     Kind::RubberStamp => "just approve",
                     Kind::Ai => "bot reviews",
                     Kind::Design => "humans think",
                 },
                 muted(),
-            )),
-        ];
-        let tr = Rect::new(r.x + 13, r.y + 1, r.width.saturating_sub(13), 3);
+            )));
+        }
+        let tr = Rect::new(r.x + 15, r.y + 1, r.width.saturating_sub(15), 3);
         f.render_widget(Paragraph::new(text), tr);
     }
 }
@@ -632,12 +646,12 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
     );
     let inner = block.inner(area);
     f.render_widget(block, area);
-    if inner.height < 12 || inner.width < 34 {
+    if inner.height < 13 || inner.width < 34 {
         return;
     }
 
     pixel::icon(pr.kind()).render(inner.x + 1, inner.y + 1, inner, f.buffer_mut());
-    let side = Rect::new(inner.x + 23, inner.y + 2, inner.width.saturating_sub(24), 8);
+    let side = Rect::new(inner.x + 23, inner.y + 3, inner.width.saturating_sub(24), 8);
     let mut head = vec![];
     match &pr.request {
         Some(r) => {
@@ -664,9 +678,9 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
 
     let body_area = Rect::new(
         inner.x + 1,
-        inner.y + 11,
+        inner.y + 12,
         inner.width.saturating_sub(2),
-        inner.height.saturating_sub(11),
+        inner.height.saturating_sub(12),
     );
     let mut lines = Vec::new();
     if let Some(why) = pr.request.as_ref().and_then(|r| r.why.as_deref()) {
