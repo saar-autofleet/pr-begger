@@ -1,0 +1,530 @@
+{
+ "data": {
+  "search": {
+   "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+   },
+   "nodes": [
+    {
+     "id": "PR812",
+     "number": 812,
+     "title": "Bump serde to 1.0.230 across workspace",
+     "url": "https://github.com/acme/api/pull/812",
+     "isDraft": false,
+     "createdAt": "2026-11-04T04:35:07Z",
+     "updatedAt": "2026-11-05T09:35:07Z",
+     "additions": 14,
+     "deletions": 14,
+     "author": {
+      "__typename": "User",
+      "login": "dana"
+     },
+     "repository": {
+      "nameWithOwner": "acme/api"
+     },
+     "reviewDecision": "REVIEW_REQUIRED",
+     "mergeable": "MERGEABLE",
+     "mergeStateStatus": "BLOCKED",
+     "reviewRequests": {
+      "totalCount": 1
+     },
+     "latestOpinionatedReviews": {
+      "nodes": []
+     },
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": {
+          "state": "SUCCESS"
+         }
+        }
+       }
+      ]
+     },
+     "comments": {
+      "totalCount": 1,
+      "nodes": [
+       {
+        "id": "IC812",
+        "body": "<!-- pr-begger: {\"v\":1,\"kind\":\"rubber-stamp\",\"why\":\"lockfile only\"} -->\n**CR kind**",
+        "createdAt": "2026-11-04T05:05:07Z",
+        "lastEditedAt": null,
+        "author": {
+         "__typename": "User",
+         "login": "dana"
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "PR77",
+     "number": 77,
+     "title": "Rename FleetCard props (no behavior change)",
+     "url": "https://github.com/acme/web/pull/77",
+     "isDraft": false,
+     "createdAt": "2026-11-05T05:35:07Z",
+     "updatedAt": "2026-11-05T09:35:07Z",
+     "additions": 48,
+     "deletions": 48,
+     "author": {
+      "__typename": "User",
+      "login": "omer"
+     },
+     "repository": {
+      "nameWithOwner": "acme/web"
+     },
+     "reviewDecision": "REVIEW_REQUIRED",
+     "mergeable": "MERGEABLE",
+     "mergeStateStatus": "BLOCKED",
+     "reviewRequests": {
+      "totalCount": 1
+     },
+     "latestOpinionatedReviews": {
+      "nodes": []
+     },
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": {
+          "state": "PENDING"
+         }
+        }
+       }
+      ]
+     },
+     "comments": {
+      "totalCount": 1,
+      "nodes": [
+       {
+        "id": "IC77",
+        "body": "<!-- pr-begger: {\"v\":1,\"kind\":\"rubber-stamp\"} -->\n**CR kind**",
+        "createdAt": "2026-11-05T06:05:07Z",
+        "lastEditedAt": null,
+        "author": {
+         "__typename": "User",
+         "login": "omer"
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "PR1290",
+     "number": 1290,
+     "title": "Add retry budget to the matcher client",
+     "url": "https://github.com/acme/dispatch/pull/1290",
+     "isDraft": false,
+     "createdAt": "2026-11-03T08:35:07Z",
+     "updatedAt": "2026-11-05T09:35:07Z",
+     "additions": 212,
+     "deletions": 40,
+     "author": {
+      "__typename": "User",
+      "login": "lior"
+     },
+     "repository": {
+      "nameWithOwner": "acme/dispatch"
+     },
+     "reviewDecision": "REVIEW_REQUIRED",
+     "mergeable": "MERGEABLE",
+     "mergeStateStatus": "BEHIND",
+     "reviewRequests": {
+      "totalCount": 1
+     },
+     "latestOpinionatedReviews": {
+      "nodes": []
+     },
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": {
+          "state": "SUCCESS"
+         }
+        }
+       }
+      ]
+     },
+     "comments": {
+      "totalCount": 1,
+      "nodes": [
+       {
+        "id": "IC1290",
+        "body": "<!-- pr-begger: {\"v\":1,\"kind\":\"ai\",\"why\":\"straightforward, good tests\"} -->\n**CR kind**",
+        "createdAt": "2026-11-03T09:05:07Z",
+        "lastEditedAt": null,
+        "author": {
+         "__typename": "User",
+         "login": "lior"
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "PR1294",
+     "number": 1294,
+     "title": "Typed config loader for routing service",
+     "url": "https://github.com/acme/dispatch/pull/1294",
+     "isDraft": false,
+     "createdAt": "2026-11-05T02:35:07Z",
+     "updatedAt": "2026-11-05T09:35:07Z",
+     "additions": 330,
+     "deletions": 120,
+     "author": {
+      "__typename": "User",
+      "login": "maya"
+     },
+     "repository": {
+      "nameWithOwner": "acme/dispatch"
+     },
+     "reviewDecision": "REVIEW_REQUIRED",
+     "mergeable": "MERGEABLE",
+     "mergeStateStatus": "BLOCKED",
+     "reviewRequests": {
+      "totalCount": 1
+     },
+     "latestOpinionatedReviews": {
+      "nodes": []
+     },
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": {
+          "state": "FAILURE"
+         }
+        }
+       }
+      ]
+     },
+     "comments": {
+      "totalCount": 1,
+      "nodes": [
+       {
+        "id": "IC1294",
+        "body": "<!-- pr-begger: {\"v\":1,\"kind\":\"ai\"} -->\n**CR kind**",
+        "createdAt": "2026-11-05T03:05:07Z",
+        "lastEditedAt": null,
+        "author": {
+         "__typename": "User",
+         "login": "maya"
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "PR431",
+     "number": 431,
+     "title": "Split invoice ledger into events + projections",
+     "url": "https://github.com/acme/billing/pull/431",
+     "isDraft": false,
+     "createdAt": "2026-11-02T10:35:07Z",
+     "updatedAt": "2026-11-05T09:35:07Z",
+     "additions": 1840,
+     "deletions": 610,
+     "author": {
+      "__typename": "User",
+      "login": "noa"
+     },
+     "repository": {
+      "nameWithOwner": "acme/billing"
+     },
+     "reviewDecision": "CHANGES_REQUESTED",
+     "mergeable": "MERGEABLE",
+     "mergeStateStatus": "BLOCKED",
+     "reviewRequests": {
+      "totalCount": 1
+     },
+     "latestOpinionatedReviews": {
+      "nodes": []
+     },
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": {
+          "state": "SUCCESS"
+         }
+        }
+       }
+      ]
+     },
+     "comments": {
+      "totalCount": 1,
+      "nodes": [
+       {
+        "id": "IC431",
+        "body": "<!-- pr-begger: {\"v\":1,\"kind\":\"design\",\"why\":\"new event schema; touches every consumer\"} -->\n**CR kind**",
+        "createdAt": "2026-11-02T11:05:07Z",
+        "lastEditedAt": null,
+        "author": {
+         "__typename": "User",
+         "login": "noa"
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "PR88",
+     "number": 88,
+     "title": "Move workers to spot node pools",
+     "url": "https://github.com/acme/infra/pull/88",
+     "isDraft": false,
+     "createdAt": "2026-11-04T14:35:07Z",
+     "updatedAt": "2026-11-05T09:35:07Z",
+     "additions": 96,
+     "deletions": 12,
+     "author": {
+      "__typename": "User",
+      "login": "you"
+     },
+     "repository": {
+      "nameWithOwner": "acme/infra"
+     },
+     "reviewDecision": "REVIEW_REQUIRED",
+     "mergeable": "MERGEABLE",
+     "mergeStateStatus": "BLOCKED",
+     "reviewRequests": {
+      "totalCount": 2
+     },
+     "latestOpinionatedReviews": {
+      "nodes": []
+     },
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": null
+        }
+       }
+      ]
+     },
+     "comments": {
+      "totalCount": 1,
+      "nodes": [
+       {
+        "id": "IC88",
+        "body": "<!-- pr-begger: {\"v\":1,\"kind\":\"design\",\"why\":\"cost vs. eviction risk tradeoff\"} -->\n**CR kind**",
+        "createdAt": "2026-11-04T15:05:07Z",
+        "lastEditedAt": null,
+        "author": {
+         "__typename": "User",
+         "login": "you"
+        }
+       }
+      ]
+     },
+     "reviewThreads": {
+      "totalCount": 5,
+      "nodes": [
+       {
+        "isResolved": false,
+        "comments": {
+         "nodes": [
+          {
+           "createdAt": "2026-11-05T08:35:07Z",
+           "author": {
+            "__typename": "User",
+            "login": "reviewer"
+           }
+          }
+         ]
+        }
+       },
+       {
+        "isResolved": false,
+        "comments": {
+         "nodes": [
+          {
+           "createdAt": "2026-11-05T08:35:07Z",
+           "author": {
+            "__typename": "User",
+            "login": "reviewer"
+           }
+          }
+         ]
+        }
+       },
+       {
+        "isResolved": true,
+        "comments": {
+         "nodes": [
+          {
+           "createdAt": "2026-11-05T08:35:07Z",
+           "author": {
+            "__typename": "User",
+            "login": "reviewer"
+           }
+          }
+         ]
+        }
+       },
+       {
+        "isResolved": true,
+        "comments": {
+         "nodes": [
+          {
+           "createdAt": "2026-11-05T08:35:07Z",
+           "author": {
+            "__typename": "User",
+            "login": "reviewer"
+           }
+          }
+         ]
+        }
+       },
+       {
+        "isResolved": true,
+        "comments": {
+         "nodes": [
+          {
+           "createdAt": "2026-11-05T08:35:07Z",
+           "author": {
+            "__typename": "User",
+            "login": "reviewer"
+           }
+          }
+         ]
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "PR90",
+     "number": 90,
+     "title": "Pin terraform provider versions",
+     "url": "https://github.com/acme/infra/pull/90",
+     "isDraft": false,
+     "createdAt": "2026-11-04T06:35:07Z",
+     "updatedAt": "2026-11-05T09:35:07Z",
+     "additions": 22,
+     "deletions": 22,
+     "author": {
+      "__typename": "User",
+      "login": "you"
+     },
+     "repository": {
+      "nameWithOwner": "acme/infra"
+     },
+     "reviewDecision": "APPROVED",
+     "mergeable": "MERGEABLE",
+     "mergeStateStatus": "CLEAN",
+     "reviewRequests": {
+      "totalCount": 0
+     },
+     "latestOpinionatedReviews": {
+      "nodes": [
+       {
+        "state": "APPROVED",
+        "submittedAt": "2026-11-05T07:35:07Z",
+        "author": {
+         "__typename": "User",
+         "login": "rev"
+        }
+       }
+      ]
+     },
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": {
+          "state": "SUCCESS"
+         }
+        }
+       }
+      ]
+     },
+     "comments": {
+      "totalCount": 1,
+      "nodes": [
+       {
+        "id": "IC90",
+        "body": "<!-- pr-begger: {\"v\":1,\"kind\":\"rubber-stamp\"} -->\n**CR kind**",
+        "createdAt": "2026-11-04T07:05:07Z",
+        "lastEditedAt": null,
+        "author": {
+         "__typename": "User",
+         "login": "you"
+        }
+       }
+      ]
+     },
+     "reviewThreads": {
+      "totalCount": 1,
+      "nodes": [
+       {
+        "isResolved": true,
+        "comments": {
+         "nodes": [
+          {
+           "createdAt": "2026-11-03T18:35:07Z",
+           "author": {
+            "__typename": "User",
+            "login": "reviewer"
+           }
+          }
+         ]
+        }
+       }
+      ]
+     }
+    },
+    {
+     "id": "PR1301",
+     "number": 1301,
+     "title": "WIP: zone-aware batching",
+     "url": "https://github.com/acme/dispatch/pull/1301",
+     "isDraft": true,
+     "createdAt": "2026-11-05T07:35:07Z",
+     "updatedAt": "2026-11-05T09:35:07Z",
+     "additions": 410,
+     "deletions": 90,
+     "author": {
+      "__typename": "User",
+      "login": "you"
+     },
+     "repository": {
+      "nameWithOwner": "acme/dispatch"
+     },
+     "reviewDecision": null,
+     "mergeable": "MERGEABLE",
+     "mergeStateStatus": "DRAFT",
+     "reviewRequests": {
+      "totalCount": 0
+     },
+     "latestOpinionatedReviews": {
+      "nodes": []
+     },
+     "commits": {
+      "nodes": [
+       {
+        "commit": {
+         "statusCheckRollup": {
+          "state": "PENDING"
+         }
+        }
+       }
+      ]
+     },
+     "comments": {
+      "totalCount": 0,
+      "nodes": []
+     },
+     "reviewThreads": {
+      "totalCount": 0,
+      "nodes": []
+     }
+    }
+   ]
+  }
+ }
+}
