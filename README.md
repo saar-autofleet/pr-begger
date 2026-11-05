@@ -257,7 +257,9 @@ monochrome too.
 any order), so `nested` finds titles containing "nested" and nothing that
 merely has those letters scattered. Type part of a title, a PR number (`4202`
 or `#4202`), a repo, an author or a kind; prefix a word with `'` to match it
-fuzzily, or `!` to exclude it. `enter`
+fuzzily, or `!` to exclude it. Rows are aligned columns (kind dot,
+`repo#n`, title, author); a small preview pane under the list shows the
+selected PR's full title, kind and reason, CI, review and merge state. `enter`
 jumps to the PR, switching screens and clearing filters that would hide it;
 `ctrl-o` opens it in the browser; `esc` goes back. Without fzf, `/` says how
 to install it.

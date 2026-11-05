@@ -817,7 +817,7 @@ pub fn run(cfg: Config, follow_file: FollowFile) -> Result<()> {
                 }
             }
             if std::mem::take(&mut app.want_search) {
-                let lines = fzf::lines(&app);
+                let lines = fzf::lines(&app, terminal.size()?.width);
                 // Step out of the alternate screen and raw mode for fzf, then
                 // step back in on the same Terminal (a fresh one would query
                 // the cursor position, which not every pty answers).
