@@ -1067,7 +1067,9 @@ mod screens {
                         let pixel = c.symbol() == " "
                             && matches!(c.bg, ratatui::style::Color::Rgb(..))
                             && c.fg == ratatui::style::Color::Reset;
-                        if pixel {
+                        if pixel && c.bg == pixel::pal::OUTLINE {
+                            "▓".to_string()
+                        } else if pixel {
                             "█".to_string()
                         } else {
                             c.symbol().to_string()

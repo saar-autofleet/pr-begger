@@ -25,6 +25,13 @@ pub mod pal {
     pub const SKY: Color = Color::Rgb(167, 199, 231);
     pub const CREAM: Color = Color::Rgb(255, 248, 231);
     pub const FADE: Color = Color::Rgb(160, 150, 180);
+    // shades for pixel-art shading
+    pub const PEACH_DARK: Color = Color::Rgb(214, 158, 116);
+    pub const MINT_DARK: Color = Color::Rgb(108, 172, 136);
+    pub const SKY_DARK: Color = Color::Rgb(108, 148, 198);
+    pub const LILAC_DARK: Color = Color::Rgb(148, 128, 184);
+    /// Pixel-art outline: a deep plum-grey, softer than black.
+    pub const OUTLINE: Color = Color::Rgb(92, 84, 112);
     /// Text on pastel backgrounds.
     pub const INK: Color = Color::Rgb(45, 40, 60);
 }
@@ -157,77 +164,108 @@ fn gradient(y: usize) -> Color {
     }
 }
 
-// Detail-window icons: 6×6 square pixels, 12 columns × 6 rows.
+// Icons are drawn EGA-style: a dark outline (k), a base pastel, a lighter
+// highlight and a darker shade per material. Upper case is the shade.
+//
+//   k outline      w cream highlight
+//   h/H wood       r/R rubber (rose)    g/G ink (mint)
+//   b/B robot      e eye glow           y bulb / pencil wood
+//   o/O hinge      l/L legs (lilac)     p pencil (pink)   s steel
 
-const STAMP: [&str; 6] = [
-    ".hhhh.", //
-    "..hh..", //
-    "..hh..", //
-    ".rrrr.", //
-    "rRRRRr", //
-    "g.g.g.", //
+// Detail-window icons: 10×9 square pixels, 20 columns × 9 rows.
+
+const STAMP: [&str; 9] = [
+    "...kkkk...", //
+    "..kwhhHk..", //
+    "..khhhHk..", //
+    "...khHk...", //
+    "..kkhHkk..", //
+    ".krrrrrRk.", //
+    "kwrrrrrrRk", //
+    ".kkkkkkkk.", //
+    "g.gG.Gg.gG", //
 ];
 
-const ROBOT: [&str; 6] = [
-    "..y...", //
-    ".bbbb.", //
-    "bwbbwb", //
-    "bbbbbb", //
-    ".bssb.", //
-    ".b..b.", //
+const ROBOT: [&str; 9] = [
+    "....ky....", //
+    "....kk....", //
+    ".kkkkkkkk.", //
+    "kbwbbbbbBk", //
+    "kbekbbekBk", //
+    "kbbbbbbbBk", //
+    "kbskskskBk", //
+    ".kBBBBBBk.", //
+    "..kk..kk..", //
 ];
 
-const COMPASS: [&str; 6] = [
-    "..oo..", //
-    "..YY..", //
-    "..ll..", //
-    ".l..l.", //
-    ".l..l.", //
-    "s....p", //
+const COMPASS: [&str; 9] = [
+    "....kk....", //
+    "...kwoOk..", //
+    "...kOOOk..", //
+    "....klk...", //
+    "...kl.Lk..", //
+    "..kl...Lk.", //
+    "..kl...pk.", //
+    ".kl.....yk", //
+    ".s.......k", //
 ];
 
-const QUESTION: [&str; 6] = [
-    ".ssss.", //
-    "s....s", //
-    "...ss.", //
-    "..s...", //
-    "......", //
-    "..s...", //
+const QUESTION: [&str; 9] = [
+    "..kkkkk...", //
+    ".kwlllLk..", //
+    ".kLk.kLk..", //
+    "....klLk..", //
+    "...klLk...", //
+    "...kLk....", //
+    "....k.....", //
+    "...klk....", //
+    "...kLk....", //
 ];
 
-// Header legend icons: 5×4 square pixels, 10 columns × 4 rows.
+// Header legend icons: 6×5 square pixels, 12 columns × 5 rows.
 
-const MINI_STAMP: [&str; 4] = [
-    ".hhh.", //
-    "..h..", //
-    "rrrrr", //
-    "g.g.g", //
+const MINI_STAMP: [&str; 5] = [
+    ".kwhHk", //
+    "..khk.", //
+    "krrrRk", //
+    "kkkkkk", //
+    "g.gG.g", //
 ];
 
-const MINI_ROBOT: [&str; 4] = [
-    "..y..", //
-    "bbbbb", //
-    "bwbwb", //
-    ".b.b.", //
+const MINI_ROBOT: [&str; 5] = [
+    "..ky..", //
+    ".kkkk.", //
+    "kebbeB", //
+    "kbsssB", //
+    ".kBBk.", //
 ];
 
-const MINI_COMPASS: [&str; 4] = [
-    "..o..", //
-    ".l.l.", //
-    ".l.l.", //
-    "s...p", //
+const MINI_COMPASS: [&str; 5] = [
+    "..kOk.", //
+    "..klk.", //
+    ".kl.Lk", //
+    ".kl.pk", //
+    ".s...y", //
 ];
 
 fn sprite_color(ch: char) -> Option<Color> {
     Some(match ch {
-        'h' | 'o' => pal::PEACH,
-        'r' => pal::ROSE,
-        'R' | 'p' => pal::PINK,
-        'g' => pal::MINT,
-        'y' | 'Y' => pal::BUTTER,
-        's' | 'l' => pal::LILAC,
-        'b' => pal::SKY,
+        'k' => pal::OUTLINE,
         'w' => pal::CREAM,
+        'h' | 'o' => pal::PEACH,
+        'H' | 'O' => pal::PEACH_DARK,
+        'r' => pal::PINK,
+        'R' => pal::ROSE,
+        'g' => pal::MINT,
+        'G' => pal::MINT_DARK,
+        'b' => pal::SKY,
+        'B' => pal::SKY_DARK,
+        'e' => pal::MINT,
+        'y' => pal::BUTTER,
+        'l' => pal::LILAC,
+        'L' => pal::LILAC_DARK,
+        'p' => pal::ROSE,
+        's' => pal::FADE,
         _ => return None,
     })
 }
@@ -260,19 +298,36 @@ mod tests {
     #[test]
     fn icon_sizes() {
         for k in Kind::ALL {
-            assert_eq!(icon(Some(k)).cells(), (12, 6), "{k}");
-            assert_eq!(mini(k).cells(), (10, 4), "{k}");
+            assert_eq!(icon(Some(k)).cells(), (20, 9), "{k}");
+            assert_eq!(mini(k).cells(), (12, 5), "{k}");
         }
-        assert_eq!(icon(None).cells(), (12, 6));
+        assert_eq!(icon(None).cells(), (20, 9));
     }
 
     #[test]
     fn sprite_rows_are_rectangular() {
         for rows in [STAMP, ROBOT, COMPASS, QUESTION] {
-            assert!(rows.iter().all(|r| r.chars().count() == 6));
+            assert!(rows.iter().all(|r| r.chars().count() == 10), "{rows:?}");
         }
         for rows in [MINI_STAMP, MINI_ROBOT, MINI_COMPASS] {
-            assert!(rows.iter().all(|r| r.chars().count() == 5));
+            assert!(rows.iter().all(|r| r.chars().count() == 6), "{rows:?}");
+        }
+        // every pixel letter has a colour
+        for rows in [
+            &STAMP[..],
+            &ROBOT,
+            &COMPASS,
+            &QUESTION,
+            &MINI_STAMP,
+            &MINI_ROBOT,
+            &MINI_COMPASS,
+        ] {
+            for ch in rows.iter().flat_map(|r| r.chars()) {
+                assert!(
+                    ch == '.' || sprite_color(ch).is_some(),
+                    "no colour for {ch:?}"
+                );
+            }
         }
     }
 

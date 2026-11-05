@@ -269,14 +269,14 @@ fn draw_compact_header(f: &mut Frame, app: &App, area: Rect) {
 /// A small icon per kind with its count, like a 90s desktop shortcut row.
 /// With a filter on, the other kinds fade.
 fn draw_legend(f: &mut Frame, app: &App, area: Rect) {
-    const ENTRY_W: u16 = 24;
-    if area.width < ENTRY_W * 3 || area.height < 4 {
+    const ENTRY_W: u16 = 26;
+    if area.width < ENTRY_W * 3 || area.height < 5 {
         return;
     }
     let list = app.list(app.screen);
     // right-aligned, so a long tab row (new count, filter) does not run into it
     let w = ENTRY_W * 3;
-    let area = Rect::new(area.right() - w, area.y, w, area.height.min(4));
+    let area = Rect::new(area.right() - w, area.y, w, area.height.min(5));
     for (i, k) in Kind::ALL.into_iter().enumerate() {
         let x = area.x + i as u16 * ENTRY_W;
         let r = Rect::new(x, area.y, ENTRY_W.min(area.right() - x), area.height);
@@ -306,7 +306,7 @@ fn draw_legend(f: &mut Frame, app: &App, area: Rect) {
                 muted(),
             )),
         ];
-        let tr = Rect::new(r.x + 11, r.y, r.width.saturating_sub(11), 3);
+        let tr = Rect::new(r.x + 13, r.y + 1, r.width.saturating_sub(13), 3);
         f.render_widget(Paragraph::new(text), tr);
     }
 }
@@ -632,12 +632,12 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
     );
     let inner = block.inner(area);
     f.render_widget(block, area);
-    if inner.height < 9 || inner.width < 24 {
+    if inner.height < 12 || inner.width < 34 {
         return;
     }
 
     pixel::icon(pr.kind()).render(inner.x + 1, inner.y + 1, inner, f.buffer_mut());
-    let side = Rect::new(inner.x + 15, inner.y + 1, inner.width.saturating_sub(16), 6);
+    let side = Rect::new(inner.x + 23, inner.y + 2, inner.width.saturating_sub(24), 8);
     let mut head = vec![];
     match &pr.request {
         Some(r) => {
@@ -664,9 +664,9 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
 
     let body_area = Rect::new(
         inner.x + 1,
-        inner.y + 8,
+        inner.y + 11,
         inner.width.saturating_sub(2),
-        inner.height.saturating_sub(8),
+        inner.height.saturating_sub(11),
     );
     let mut lines = Vec::new();
     if let Some(why) = pr.request.as_ref().and_then(|r| r.why.as_deref()) {
