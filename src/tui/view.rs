@@ -561,10 +561,24 @@ fn draw_list(f: &mut Frame, app: &App, area: Rect) -> (usize, usize) {
                 Line::from(Span::styled("  +  on any PR follows its author", muted())),
             ]
         } else if app.screen == Screen::Following {
-            vec![Line::from(Span::styled(
-                "  No open PRs from the people you follow.",
-                muted(),
-            ))]
+            vec![
+                Line::from(Span::styled(
+                    format!(
+                        "  No open PRs from the people you follow in {}.",
+                        app.scope_label()
+                    ),
+                    Style::new().bold(),
+                )),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  Following only looks inside the current scope. If you started with",
+                    muted(),
+                )),
+                Line::from(Span::styled(
+                    "  --repo or --org, run plain `pr-begger` to search your configured orgs.",
+                    muted(),
+                )),
+            ]
         } else {
             vec![Line::from(Span::styled(
                 "  You have no open PRs in scope.",

@@ -165,6 +165,10 @@ pr-begger following                                  # who you follow
 pr-begger list --following                           # their open PRs, plain text
 ```
 
+Following searches the same scope as the board: with `--repo X` it only
+looks in repo X, so run plain `pr-begger` to see followed people's PRs across
+your orgs.
+
 Names are checked with GitHub before they are saved, so a typo is caught
 right away (a login that does not exist would otherwise break the search).
 Teams are expanded to their current members on every refresh. The list
