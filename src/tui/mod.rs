@@ -1,5 +1,6 @@
 //! The interactive board.
 
+mod fzf;
 mod pixel;
 mod view;
 
@@ -116,6 +117,19 @@ pub struct App {
     pub status: Option<Status>,
     pub tick: u64,
     pub quit: bool,
+    /// `/` was pressed: the run loop hands the terminal to fzf.
+    want_search: bool,
+    /// Following screen grouped by repo instead of by author.
+    pub following_by_repo: bool,
+}
+
+/// The Following screen's group for a PR, lowercased for sorting.
+pub fn following_group(pr: &Pr, by_repo: bool) -> String {
+    if by_repo {
+        pr.repo.to_lowercase()
+    } else {
+        pr.author.to_lowercase()
+    }
 }
 
 /// Board order: by kind (cheapest review first), then oldest first, since the
@@ -173,6 +187,8 @@ impl App {
             status: None,
             tick: 0,
             quit: false,
+            want_search: false,
+            following_by_repo: false,
         };
         if let Some(snap) = app.cache.load(&app.cfg.scope_key()) {
             app.board = snap.board;
@@ -253,15 +269,35 @@ impl App {
         });
     }
 
-    /// Following order: grouped by author (alphabetical), newest first.
+    /// Following order: grouped by author or by repo (alphabetical),
+    /// newest first within a group.
     fn set_following(&mut self, mut prs: Vec<Pr>) {
+        let by_repo = self.following_by_repo;
         prs.sort_by(|a, b| {
-            a.author
-                .to_lowercase()
-                .cmp(&b.author.to_lowercase())
+            following_group(a, by_repo)
+                .cmp(&following_group(b, by_repo))
                 .then(b.created_at.cmp(&a.created_at))
         });
         self.following = prs;
+    }
+
+    fn toggle_following_grouping(&mut self) {
+        let key = self.selected().map(Pr::key);
+        self.following_by_repo = !self.following_by_repo;
+        let prs = std::mem::take(&mut self.following);
+        self.set_following(prs);
+        // keep the cursor on the same PR
+        if let Some(k) = key {
+            if let Some(i) = self.items().iter().position(|p| p.key() == k) {
+                self.cursor[Screen::Following.idx()] = i;
+            }
+        }
+        let by = if self.following_by_repo {
+            "repo"
+        } else {
+            "author"
+        };
+        self.say(format!("following grouped by {by}"), false);
     }
 
     fn save_follows(&mut self) {
@@ -606,6 +642,10 @@ impl App {
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => self.quit = true,
             KeyCode::Char('?') => self.popup = Some(Popup::Help),
+            KeyCode::Char('/') => self.want_search = true,
+            KeyCode::Char('v') if self.screen == Screen::Following => {
+                self.toggle_following_grouping()
+            }
             KeyCode::Down | KeyCode::Char('j') => self.move_by(1),
             KeyCode::Up | KeyCode::Char('k') => self.move_by(-1),
             KeyCode::PageDown | KeyCode::Char(' ') => self.move_by(page),
@@ -718,6 +758,24 @@ impl App {
     }
 }
 
+impl App {
+    fn on_search(&mut self, outcome: std::io::Result<fzf::Outcome>) {
+        match outcome {
+            Ok(fzf::Outcome::Picked(pick)) => match self.jump_to(&pick.key) {
+                Some(_) if pick.open => self.open_selected(),
+                Some(pr) => self.say(format!("{} {}", pr.key(), pr.title), false),
+                None => self.say(format!("{} is no longer listed", pick.key), true),
+            },
+            Ok(fzf::Outcome::Cancelled) => {}
+            Ok(fzf::Outcome::Missing) => self.say(
+                "search needs fzf: brew install fzf (or your package manager)",
+                true,
+            ),
+            Err(e) => self.say(format!("fzf failed: {e}"), true),
+        }
+    }
+}
+
 fn open_url(url: &str) -> std::io::Result<()> {
     #[cfg(target_os = "macos")]
     let mut cmd = std::process::Command::new("open");
@@ -757,6 +815,24 @@ pub fn run(cfg: Config, follow_file: FollowFile) -> Result<()> {
                         app.on_key(key, page);
                     }
                 }
+            }
+            if std::mem::take(&mut app.want_search) {
+                let lines = fzf::lines(&app);
+                // Step out of the alternate screen and raw mode for fzf, then
+                // step back in on the same Terminal (a fresh one would query
+                // the cursor position, which not every pty answers).
+                ratatui::restore();
+                let outcome = fzf::run(&lines);
+                ratatui::crossterm::terminal::enable_raw_mode()?;
+                ratatui::crossterm::execute!(
+                    std::io::stdout(),
+                    ratatui::crossterm::terminal::EnterAlternateScreen
+                )?;
+                // resize() clears and forces a full redraw without the cursor
+                // query that clear() makes
+                let size = terminal.size()?;
+                terminal.resize(ratatui::layout::Rect::new(0, 0, size.width, size.height))?;
+                app.on_search(outcome);
             }
             while let Ok(msg) = rx.try_recv() {
                 app.on_msg(msg);
@@ -891,6 +967,57 @@ mod tests {
         }
         app.on_key(KeyEvent::from(KeyCode::Esc), 10);
         assert!(app.popup.is_none());
+    }
+
+    #[test]
+    fn following_groups_by_author_or_repo() {
+        let mut app = app_with(sample());
+        app.screen = Screen::Following;
+        let groups = |app: &App| -> Vec<String> {
+            app.items()
+                .iter()
+                .map(|p| following_group(p, app.following_by_repo))
+                .collect()
+        };
+        let mut sorted = groups(&app);
+        sorted.sort();
+        assert_eq!(groups(&app), sorted, "grouped by author");
+        app.cursor[2] = 1;
+        let before = app.selected().unwrap().key();
+        app.on_key(KeyEvent::from(KeyCode::Char('v')), 10);
+        assert!(app.following_by_repo);
+        let mut sorted = groups(&app);
+        sorted.sort();
+        assert_eq!(groups(&app), sorted, "grouped by repo");
+        assert_eq!(
+            app.selected().unwrap().key(),
+            before,
+            "cursor follows the PR"
+        );
+    }
+
+    #[test]
+    fn search_pick_jumps_across_screens_and_clears_hiding_filters() {
+        let mut app = app_with(sample());
+        app.board.retain(|p| p.number != 7);
+        app.filter = Some(Kind::Design);
+        // #7 is on My PRs (and Following), not the board
+        app.on_search(Ok(fzf::Outcome::Picked(fzf::Pick {
+            key: "Autofleet/web#7".into(),
+            open: false,
+        })));
+        assert_ne!(app.screen, Screen::Board);
+        assert_eq!(app.filter, None, "the kind filter would hide it");
+        assert_eq!(app.selected().unwrap().number, 7);
+        app.on_search(Ok(fzf::Outcome::Missing));
+        assert!(app.status.as_ref().unwrap().error);
+    }
+
+    #[test]
+    fn slash_requests_search() {
+        let mut app = app_with(sample());
+        app.on_key(KeyEvent::from(KeyCode::Char('/')), 10);
+        assert!(app.want_search);
     }
 
     #[test]

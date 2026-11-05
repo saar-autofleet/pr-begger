@@ -132,7 +132,8 @@ marks it seen.
 ### Following
 
 `tab` again (or `3`) shows **Following**: every open PR, begging or not, by
-people and teams you follow, grouped by author. On the begging board, `w`
+people and teams you follow, grouped by author; `v` regroups it by repo
+(with an author column). On the begging board, `w`
 narrows it to PRs from people you follow.
 
 ```text
@@ -229,6 +230,7 @@ in any terminal.)
 
 | key | action |
 |---|---|
+| `/` | search every PR on all three screens with [fzf](https://github.com/junegunn/fzf): title, number (`4202` or `#4202`), repo, author, kind. `enter` jumps to it, `ctrl-o` opens it in the browser |
 | `j`/`k`, `↓`/`↑` | move (`g`/`G` top/bottom, `pgup`/`pgdn`, `ctrl+d`/`ctrl+u`) |
 | `enter` / `o` | open the PR in your browser |
 | `c` / `b` | beg: set or change the CR kind of the selected PR (posts as you) |
@@ -237,6 +239,7 @@ in any terminal.)
 | `x` | mark a PR's activity as seen |
 | `p` | people & teams you follow (`a` add, `d` remove) |
 | `+` | follow the selected PR's author |
+| `v` | Following: group by author / by repo |
 | `w` | board: only PRs by people you follow |
 | `r` | refresh now (it also refreshes every `refresh_secs`) |
 | `?` | help and the glyph legend |
@@ -246,6 +249,15 @@ Glyphs: CI `✓` passing, `✗` failing, `◐` running, `·` none. Review `✓`
 approved, `✗` changes requested, `○` waiting for reviewers. Threads `◆2/5` =
 2 unresolved of 5. Status is shape first and colour second, so it reads in
 monochrome too.
+
+### Search
+
+`/` hands every PR on all three screens to `fzf` (installed separately:
+`brew install fzf`), so it searches with fzf's own matching: type part of a
+title, a PR number (`4202` or `#4202`), a repo, an author or a kind. `enter`
+jumps to the PR, switching screens and clearing filters that would hide it;
+`ctrl-o` opens it in the browser; `esc` goes back. Without fzf, `/` says how
+to install it.
 
 ### Plain output
 

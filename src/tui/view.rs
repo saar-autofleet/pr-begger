@@ -9,7 +9,7 @@ use ratatui::Frame;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use super::pixel::{self, kind_color, pal};
-use super::{App, FollowEditor, Picker, Popup, Screen};
+use super::{following_group, App, FollowEditor, Picker, Popup, Screen};
 use crate::follow::Who;
 use crate::kind::Kind;
 use crate::model::{age, Ci, Decision, Merge, Pr};
@@ -350,10 +350,16 @@ fn columns(app: &App, items: &[&Pr], width: usize) -> Cols {
     let mut size = 0;
     match app.screen {
         Screen::Following => {
-            // grouped by author, so no author column
-            if width.saturating_sub(fixed + 11) >= 24 {
-                size = 11;
-                fixed += 11;
+            // grouped by author: no author column; grouped by repo: show it
+            let mut cols: Vec<(&mut usize, usize)> = vec![(&mut size, 11)];
+            if app.following_by_repo {
+                cols.push((&mut author, 12));
+            }
+            for (col, w) in cols {
+                if width.saturating_sub(fixed + w) >= 24 {
+                    *col = w;
+                    fixed += w;
+                }
             }
         }
         Screen::Board => {
@@ -438,16 +444,18 @@ fn rows<'a>(app: &'a App, items: &[&'a Pr], width: usize) -> Vec<Row<'a>> {
             }
         }
         Screen::Following => {
+            let by_repo = app.following_by_repo;
             let mut last: Option<String> = None;
             for (i, pr) in items.iter().enumerate() {
-                let who = pr.author.to_lowercase();
-                if last.as_deref() != Some(who.as_str()) {
+                let group = following_group(pr, by_repo);
+                if last.as_deref() != Some(group.as_str()) {
                     let n = items
                         .iter()
-                        .filter(|p| p.author.to_lowercase() == who)
+                        .filter(|p| following_group(p, by_repo) == group)
                         .count();
-                    out.push(Row::Header(rule_line(&pr.author, n, "", pal::LILAC, width)));
-                    last = Some(who);
+                    let label = if by_repo { &pr.repo } else { &pr.author };
+                    out.push(Row::Header(rule_line(label, n, "", pal::LILAC, width)));
+                    last = Some(group);
                 }
                 out.push(Row::Item(i, pr));
             }
@@ -758,6 +766,8 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     let key = |k: &str| Span::styled(format!(" {k}"), Style::new().bold());
     let txt = |t: &str| Span::styled(format!(" {t} "), muted());
     let mut spans = vec![
+        key("/"),
+        txt("search"),
         key("↑↓"),
         txt("move"),
         key("⏎"),
@@ -772,7 +782,16 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     match app.screen {
         Screen::Mine => spans.extend([key("x"), txt("seen")]),
         Screen::Board => spans.extend([key("w"), txt("followed")]),
-        Screen::Following => spans.extend([key("+"), txt("follow")]),
+        Screen::Following => spans.extend([
+            key("v"),
+            txt(if app.following_by_repo {
+                "by author"
+            } else {
+                "by repo"
+            }),
+            key("+"),
+            txt("follow"),
+        ]),
     }
     spans.extend([key("p"), txt("people")]);
     spans.extend([
@@ -821,7 +840,7 @@ fn centered(area: Rect, w: u16, h: u16) -> Rect {
 }
 
 fn draw_help(f: &mut Frame, area: Rect) {
-    let r = centered(area, 66, 29);
+    let r = centered(area, 66, 31);
     f.render_widget(Clear, r);
     let block = window("Help", r.width, pal::LILAC);
     let k = |key: &str, what: &str| {
@@ -837,6 +856,8 @@ fn draw_help(f: &mut Frame, area: Rect) {
         k("c / b", "beg: set or change the CR kind (posts as you)"),
         k("f / F", "filter by kind (cycles)"),
         k("tab / 1 2 3", "begging board / my PRs / following"),
+        k("/", "search titles, numbers, repos, authors (fzf)"),
+        k("v", "following: group by author / by repo"),
         k("x", "mark a PR's activity as seen"),
         k("p", "people & teams you follow (a add, d remove)"),
         k("+", "follow the selected PR's author"),
