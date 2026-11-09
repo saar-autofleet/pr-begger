@@ -23,15 +23,8 @@
           "latestOpinionatedReviews": { "nodes": [] },
           "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "FAILURE" } } } ] },
           "comments": {
-            "totalCount": 4,
+            "totalCount": 3,
             "nodes": [
-              {
-                "id": "IC_0",
-                "body": "<!-- review-effort -->\n🟡 **Review: M** (~48 lines of added code to read)\n🕸️ **Hubs:** `api: queue/Dispatcher.ts` (21 importers)\n🤖 _Small change to a hub file; consider `claude-review`._",
-                "createdAt": "2026-11-01T08:03:00Z",
-                "lastEditedAt": "2026-11-02T08:30:00Z",
-                "author": { "__typename": "Bot", "login": "github-actions" }
-              },
               {
                 "id": "IC_1",
                 "body": "<!-- pr-begger: {\"v\":1,\"kind\":\"rubber-stamp\"} -->\n🟩 **CR kind: Rubber stamp**",

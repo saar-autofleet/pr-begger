@@ -712,9 +712,6 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
         vec![Span::raw(format!("{} ago", age(pr.created_at, now)))],
     ));
     lines.push(kv("size", vec![Span::raw(pr.size_long())]));
-    if let Some(hubs) = pr.review_size.as_ref().and_then(|s| s.hubs.clone()) {
-        lines.push(kv("hubs", vec![Span::raw(hubs)]));
-    }
     lines.push(kv(
         "ci",
         vec![ci_span(pr.ci), Span::raw(format!(" {}", pr.ci.word()))],

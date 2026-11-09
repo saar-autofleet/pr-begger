@@ -162,16 +162,15 @@ impl Pr {
     /// raw diff (`+120 −30`).
     pub fn size_short(&self) -> String {
         match &self.review_size {
-            Some(s) => s.short(),
+            Some(s) => s.label(),
             None => self.raw_size(),
         }
     }
 
-    /// Size for detail panes: the review size with its line count, and the
-    /// raw diff alongside it.
+    /// Size for detail panes: the review label with the raw diff alongside.
     pub fn size_long(&self) -> String {
         match &self.review_size {
-            Some(s) => format!("{} · {} raw", s.long(), self.raw_size()),
+            Some(s) => format!("{} · {} raw", s.label(), self.raw_size()),
             None => self.raw_size(),
         }
     }

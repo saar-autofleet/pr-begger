@@ -781,10 +781,7 @@ impl PrNode {
             .map(|c| c.created_at)
             .collect();
         let labels = self.labels.map(|l| l.nodes).unwrap_or_default();
-        let review_size = ReviewSize::resolve(
-            labels.iter().map(|l| l.name.as_str()),
-            comment_nodes.iter().map(|c| c.body.as_str()),
-        );
+        let review_size = ReviewSize::from_labels(labels.iter().map(|l| l.name.as_str()));
         let comments: Vec<Comment> = comment_nodes.into_iter().map(Comment::from).collect();
         let request = marker::newest(&comments).map(|f| Request {
             kind: f.marker.kind,
@@ -913,23 +910,17 @@ mod tests {
         assert_eq!(a.review.pending, 2);
         assert_eq!(a.merge, Merge::Behind);
         assert_eq!((a.additions, a.deletions), (120, 30));
-        let size = a.review_size.as_ref().unwrap();
-        assert_eq!(size.bucket, crate::size::Bucket::M);
-        assert_eq!(size.lines, Some(48));
         assert_eq!(
-            size.hubs.as_deref(),
-            Some("api: queue/Dispatcher.ts (21 importers)")
+            a.review_size.as_ref().map(|s| s.bucket),
+            Some(crate::size::Bucket::M)
         );
         assert_eq!(a.size_short(), "review: M");
-        assert_eq!(
-            a.size_long(),
-            "review: M (~48 lines to read) · +120 −30 raw"
-        );
+        assert_eq!(a.size_long(), "review: M · +120 −30 raw");
         assert!(a.activity.is_none(), "board searches skip threads");
 
         let b = &prs[1];
         assert_eq!(b.kind(), None, "matched the search word but has no marker");
-        assert!(b.review_size.is_none(), "no label, no comment");
+        assert!(b.review_size.is_none(), "no review label");
         assert_eq!(b.size_short(), "+1 −0", "falls back to the raw diff");
         assert_eq!(b.merge, Merge::Draft);
         assert_eq!(b.ci, Ci::None);
@@ -957,7 +948,10 @@ mod tests {
             "repository":{"nameWithOwner":"o/r"},"reviewDecision":"CHANGES_REQUESTED",
             "mergeable":"CONFLICTING","mergeStateStatus":"DIRTY",
             "commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"PENDING"}}}]},
-            "comments":{"totalCount":0,"nodes":[]}}]}}"#;
+            "comments":{"totalCount":1,"nodes":[{"id":"IC_9",
+            "body":"<!-- review-effort -->\n🟢 **Review: S** (~3 lines of added code to read)",
+            "createdAt":"2026-11-01T00:00:00Z","lastEditedAt":null,
+            "author":{"__typename":"User","login":"a"}}]}}]}}"#;
         let data: NodesData = decode(text).unwrap();
         let prs: Vec<Pr> = data
             .nodes
@@ -972,6 +966,11 @@ mod tests {
         assert_eq!(pr.review.decision, Decision::ChangesRequested);
         assert_eq!(pr.merge, Merge::Conflict);
         assert_eq!(pr.kind(), None);
+        assert!(
+            pr.review_size.is_none(),
+            "a review-effort comment without the label is not a size"
+        );
+        assert_eq!(pr.size_short(), "+1 −2");
     }
 
     #[test]
