@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::kind::Kind;
+use crate::size::ReviewSize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Ci {
@@ -137,6 +138,9 @@ pub struct Pr {
     pub updated_at: DateTime<Utc>,
     pub additions: u64,
     pub deletions: u64,
+    /// The repo's `review: S|M|L|XL` reading-load size, when its CI sets one.
+    #[serde(default)]
+    pub review_size: Option<ReviewSize>,
     pub draft: bool,
     pub ci: Ci,
     pub review: Review,
@@ -152,6 +156,28 @@ impl Pr {
 
     pub fn kind(&self) -> Option<Kind> {
         self.request.as_ref().map(|r| r.kind)
+    }
+
+    /// Size for list columns: the review label when there is one, else the
+    /// raw diff (`+120 −30`).
+    pub fn size_short(&self) -> String {
+        match &self.review_size {
+            Some(s) => s.short(),
+            None => self.raw_size(),
+        }
+    }
+
+    /// Size for detail panes: the review size with its line count, and the
+    /// raw diff alongside it.
+    pub fn size_long(&self) -> String {
+        match &self.review_size {
+            Some(s) => format!("{} · {} raw", s.long(), self.raw_size()),
+            None => self.raw_size(),
+        }
+    }
+
+    fn raw_size(&self) -> String {
+        format!("+{} −{}", self.additions, self.deletions)
     }
 
     /// The repo part after the slash; orgs make the owner redundant.

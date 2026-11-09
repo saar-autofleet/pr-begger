@@ -105,13 +105,12 @@ fn detail(pr: &Pr, screen: Screen) -> String {
     let mut out = vec![
         format!("{BOLD}{}{RESET}", clean(&pr.title)),
         format!(
-            "{DIM}{} · {} · opened {} ago · {} · +{} −{}{RESET}",
+            "{DIM}{} · {} · opened {} ago · {} · {}{RESET}",
             pr.key(),
             pr.author,
             age(pr.created_at, now),
             screen_name(screen),
-            pr.additions,
-            pr.deletions
+            pr.size_long()
         ),
     ];
     out.push(match &pr.request {

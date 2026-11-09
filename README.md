@@ -98,6 +98,18 @@ since you last looked float to the top under **NEW ACTIVITY** (bots and your
 own comments do not count). Opening a PR from this screen, or pressing `x`,
 marks it seen.
 
+### Size
+
+Where a repo's CI labels PRs with a reading-load size (`review: S`, `M`, `L`
+or `XL`, as Autofleet's autorepo does: lines of added code to read, after
+dropping the lockfile, fixtures, moved lines, whitespace and deletions), the
+size column shows that label instead of the raw diff, because raw line counts
+mislead in both directions. The detail pane adds the "~N lines to read" figure
+and any hub files from the CI's `Review:` comment, with the raw `+added
+−deleted` alongside. PRs without the label (other repos, or before CI has run)
+show `+added −deleted` as before. PR Begger only reads the label and comment;
+it never sets or changes them.
+
 ```text
  ███  ███     ███  ████  ███  ███ ████ ███      ██████                        ██                         ████
  █  █ █  █    █  █ █    █    █    █    █  █      ████      Rubber stamp   ██████████   AI review          ██       Design
@@ -272,6 +284,9 @@ pr-begger list --mine       # your PRs
 pr-begger list --following  # PRs by people/teams you follow
 ```
 
+Each line shows `size:M` for a PR with a `review:` size label, else the raw
+`+added/-deleted`.
+
 ## Config
 
 `~/.config/pr-begger/config.toml` (or `$XDG_CONFIG_HOME/pr-begger/`, or
@@ -304,8 +319,8 @@ e.g. `pr-begger --repo Autofleet/autorepo` shows only that repo.
   new comment, so in an org-wide board someone else's brand-new request may
   appear on a later refresh. Requests you make from the TUI show up at once.
 - **Fast.** The search asks for PR ids only. Everything a row shows (comments,
-  CI rollup, review decision, mergeability, threads) is then fetched by id in
-  small batches, up to 8 in parallel. GitHub resolves those nested fields one
+  labels, CI rollup, review decision, mergeability, threads) is then fetched
+  by id in small batches, up to 8 in parallel. GitHub resolves those nested fields one
   PR at a time, so asking for them in the search made a 40-PR "My PRs" fetch
   take ~7–27s; batched it takes ~2–6s. A batch GitHub times out on (502) is
   split in half and retried.
@@ -320,7 +335,8 @@ e.g. `pr-begger --repo Autofleet/autorepo` shows only that repo.
 ## Limits
 
 - A marker older than a PR's last 40 comments is not seen. Asking again
-  (which edits or posts a fresh comment) brings it back.
+  (which edits or posts a fresh comment) brings it back. The same goes for the
+  CI `Review:` comment's line count and hubs; the `review:` label still shows.
 - GitHub search returns at most 1000 results per query; `max_prs` caps it lower.
 - Org-wide boards depend on GitHub's search index (see "Search lag" above).
 
