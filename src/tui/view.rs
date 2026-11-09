@@ -576,7 +576,7 @@ fn draw_list(f: &mut Frame, app: &App, area: Rect) -> (usize, usize) {
                 )),
                 Line::from(""),
                 Line::from(Span::styled(
-                    "  p  add people or teams (omril1, Autofleet/dev-ordering)",
+                    "  p  add people or teams (alice, your-org/your-team)",
                     muted(),
                 )),
                 Line::from(Span::styled("  +  on any PR follows its author", muted())),

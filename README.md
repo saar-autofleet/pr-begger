@@ -70,13 +70,13 @@ Run `pr-begger` with no arguments.
 ─── Rubber stamp 3 ────── mechanical change, approve as-is                              ┌ api#812                            × ┐
 ▸● stamp  api#812       Bump serde to 1.0.230 across wo… dana           +14 −14  1d ✓ ○ │                                      │
  ● stamp  infra#90      Pin terraform provider versions  you            +22 −22  1d ✓ ✓ │       ████████                       │
- ● stamp  web#77        Rename FleetCard props (no beha… omer           +48 −48  5h ◐ ○ │      ██████████                      │
+ ● stamp  web#77        Rename FleetCard props (no beha… omer           +48 −48  6h ◐ ○ │      ██████████                      │
 ─── AI review 2 ────── let an AI agent go over it                                       │       ████████        Rubber stamp   │
  ● ai     dispatch#1290 Add retry budget to the matcher… lior          +212 −40  2d ✓ ○ │         ████          mechanical     │
- ● ai     dispatch#1294 Typed config loader for routing… maya         +330 −120  8h ✗ ○ │         ████          change,        │
+ ● ai     dispatch#1294 Typed config loader for routing… maya         +330 −120  9h ✗ ○ │         ████          change,        │
 ─── Design review 2 ────── needs a human design review                                  │   ████████████████    approve as-is  │
  ● design billing#431   Split invoice ledger into event… noa         +1840 −610  3d ✓ ✗ │  ██████████████████   asked by dana  │
- ● design infra#88      Move workers to spot node pools  you            +96 −12 20h · ○ │  ██████████████████   · 1d           │
+ ● design infra#88      Move workers to spot node pools  you            +96 −12 21h · ○ │  ██████████████████   · 1d           │
                                                                                         │                                      │
                                                                                         │  ██  ████  ██  ████                  │
                                                                                         │                                      │
@@ -88,7 +88,7 @@ Run `pr-begger` with no arguments.
                                                                                         │                                      │
                                                                                         │ author   dana                        │
                                                                                         └──────────────────────────────────────┘
- ↑↓ move  ⏎ open  c beg  f filter  tab screen  w followed  p people  r refresh  ? help  q quit
+ / search  ↑↓ move  ⏎ open  c beg  f filter  tab screen  w followed  p people  r refresh  ? help  q quit
 ```
 
 `tab` (or `2`) switches to **My PRs**: your own open PRs in the same orgs, with
@@ -106,10 +106,10 @@ marks it seen.
  █    █  █    ███  ████  ███  ███ ████ █  █   ██ ████ ██                  ████  ████                   ██  ████ ██
  Begging 7   My PRs 3   Following 4   1 new
 ─── New activity 1 ────── since you last looked · x marks seen                          ┌ infra#88                           × ┐
-▸● design infra#88      ● Move workers to spot node …    +96 −12  ◆2/5 blocked  20h · ○ │                                      │
+▸● design infra#88      ● Move workers to spot node …    +96 −12  ◆2/5 blocked  21h · ○ │                                      │
 ─── My open PRs 2 ──────                                                                │         ████                         │
  ● stamp  infra#90        Pin terraform provider ver…    +22 −22  ◇0/1 ready     1d ✓ ✓ │        ██████                        │
- ○ ?      dispatch#1301   WIP: zone-aware batching      +410 −90     – draft     3h ◐ · │         ████          Design review  │
+ ○ ?      dispatch#1301   WIP: zone-aware batching      +410 −90     – draft     4h ◐ · │         ████          Design review  │
                                                                                         │         ████          needs a human  │
                                                                                         │        ███  ██        design review  │
                                                                                         │       ███    ██       asked by you · │
@@ -124,9 +124,9 @@ marks it seen.
                                                                                         │ acme/infra                           │
                                                                                         │                                      │
                                                                                         │ author   you                         │
-                                                                                        │ opened   20h ago                     │
+                                                                                        │ opened   21h ago                     │
                                                                                         └──────────────────────────────────────┘
- ↑↓ move  ⏎ open  c beg  f filter  tab screen  x seen  p people  r refresh  ? help  q quit     updated just now · org:Autofleet
+ / search  ↑↓ move  ⏎ open  c beg  f filter  tab screen  x seen  p people  r refresh  ? help  q quit
 ```
 
 ### Following
@@ -148,7 +148,7 @@ narrows it to PRs from people you follow.
 ─── lior 1 ──────                                                                       │       ████████                       │
  ● ai     dispatch#1290 Add retry budget to the matcher client         +212 −40  2d ✓ ○ │      ██████████                      │
 ─── maya 1 ──────                                                                       │       ████████        Rubber stamp   │
- ● ai     dispatch#1294 Typed config loader for routing service       +330 −120  8h ✗ ○ │         ████          mechanical     │
+ ● ai     dispatch#1294 Typed config loader for routing service       +330 −120  9h ✗ ○ │         ████          mechanical     │
 ─── noa 1 ──────                                                                        │         ████          change,        │
  ● design billing#431   Split invoice ledger into events + projecti… +1840 −610  3d ✓ ✗ │   ████████████████    approve as-is  │
                                                                                         │  ██████████████████   asked by dana  │
@@ -164,18 +164,18 @@ narrows it to PRs from people you follow.
                                                                                         │                                      │
                                                                                         │ author   dana                        │
                                                                                         └──────────────────────────────────────┘
- ↑↓ move  ⏎ open  c beg  f filter  tab screen  + follow  p people  r refresh  ? help  q quit   updated just now · org:Autofleet
+ / search  ↑↓ move  ⏎ open  c beg  f filter  tab screen  v by repo  + follow  p people  r refresh  ? help  q quit
 ```
 
 Follow from the TUI with `p` (a small window: `a` add, `d` remove), or press
 `+` on any PR to follow its author. Or from the shell:
 
 ```sh
-pr-begger follow omril1 galinareznikk danielmar121   # people
-pr-begger follow Autofleet/dev-ordering              # a team (or teams/dev-ordering, or its URL)
-pr-begger unfollow omril1
-pr-begger following                                  # who you follow
-pr-begger list --following                           # their open PRs, plain text
+pr-begger follow alice bob carol      # people
+pr-begger follow your-org/your-team   # a team (or teams/your-team, or its URL)
+pr-begger unfollow alice
+pr-begger following                   # who you follow
+pr-begger list --following            # their open PRs, plain text
 ```
 
 Following searches the same scope as the board: with `--repo X` it only
@@ -188,8 +188,8 @@ Teams are expanded to their current members on every refresh. The list
 lives in `~/.config/pr-begger/follow.toml`, which you can also edit by hand:
 
 ```toml
-users = ["danielmar121", "galinareznikk", "omril1"]
-teams = ["Autofleet/dev-ordering"]
+users = ["alice", "bob", "carol"]
+teams = ["your-org/your-team"]
 ```
 
 ```text
@@ -204,9 +204,9 @@ teams = ["Autofleet/dev-ordering"]
 ─── lior 1 ──────   │ ▸ user  lior                                             │
  ● ai     dispatch#1│   user  maya                                             │   +212 −40  2d ✓ ○
 ─── maya 1 ──────   │   user  noa                                              │
- ● ai     dispatch#1│   team  acme/dev-ordering                                │  +330 −120  8h ✗ ○
+ ● ai     dispatch#1│   team  acme/your-team                                   │  +330 −120  9h ✗ ○
 ─── noa 1 ──────    │                                                          │
- ● design billing#43│   add: galinareznikk▏                                    │ +1840 −610  3d ✓ ✗
+ ● design billing#43│   add: carol▏                                            │ +1840 −610  3d ✓ ✗
                     │   login, org/team, teams/<team>, or a GitHub URL         │
                     │   enter add · esc cancel                                 │
                     │                                                          │
@@ -216,7 +216,7 @@ teams = ["Autofleet/dev-ordering"]
 
 
 
- ↑↓ move  ⏎ open  c beg  f filter  tab screen  + follow  p people  r refresh  ? help  q quit
+ / search  ↑↓ move  ⏎ open  c beg  f filter  tab screen  v by repo  + follow  p people  r refresh  ?
 ```
 
 (These are the real renderer's output for demo data:

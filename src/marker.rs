@@ -321,18 +321,18 @@ mod tests {
     #[test]
     fn re_request_edits_own_newest_marker() {
         let comments = vec![
-            comment("1", "Saar", &body(Kind::Ai), 1, None),
+            comment("1", "Erin", &body(Kind::Ai), 1, None),
             comment("2", "bob", &body(Kind::Design), 2, None),
-            comment("3", "saar", &body(Kind::RubberStamp), 3, None),
-            comment("4", "saar", "unrelated", 4, None),
+            comment("3", "erin", &body(Kind::RubberStamp), 3, None),
+            comment("4", "erin", "unrelated", 4, None),
         ];
         assert_eq!(
-            plan_request(&comments, "saar"),
+            plan_request(&comments, "erin"),
             Plan::Update {
                 comment_id: "3".into()
             }
         );
         assert_eq!(plan_request(&comments, "dave"), Plan::Create);
-        assert_eq!(plan_request(&[], "saar"), Plan::Create);
+        assert_eq!(plan_request(&[], "erin"), Plan::Create);
     }
 }
