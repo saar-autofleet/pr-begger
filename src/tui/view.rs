@@ -973,10 +973,28 @@ fn draw_follows(f: &mut Frame, app: &App, ed: &FollowEditor, area: Rect) {
     f.render_widget(Paragraph::new(lines), inner);
 }
 
-/// `e` / `s`: the plan, and one key to go.
+/// `e` / `s`: the plan, and one key to go. The key hint has its own bottom
+/// row, so long (wrapped) plan lines can never push it out of the box.
 fn draw_confirm(f: &mut Frame, c: &Confirm, area: Rect) {
-    let plan = c.plan.lines();
-    let r = centered(area, 78, plan.len() as u16 + 6);
+    let mut lines = vec![Line::from("")];
+    for (i, l) in c.plan.lines().into_iter().enumerate() {
+        lines.push(if i == 0 {
+            Line::from(Span::styled(format!(" {l}"), muted()))
+        } else if l.starts_with(' ') {
+            // a detail of the line above (the job link): no bullet
+            Line::from(Span::styled(format!("   {}", l.trim_start()), muted()))
+        } else {
+            Line::from(format!(" • {l}"))
+        });
+    }
+    let w = area.width.min(90);
+    let text_w = w.saturating_sub(2).max(1) as usize;
+    let rows: usize = lines
+        .iter()
+        .map(|l| l.width().div_ceil(text_w).max(1))
+        .sum();
+    // body rows + blank + hint + top/bottom border
+    let r = centered(area, w, rows as u16 + 4);
     f.render_widget(Clear, r);
     let title = match c.plan.action {
         crate::ci::Action::ReadyForE2e => "Ready for e2e",
@@ -985,20 +1003,20 @@ fn draw_confirm(f: &mut Frame, c: &Confirm, area: Rect) {
     let block = window(title, r.width, pal::LILAC);
     let inner = block.inner(r);
     f.render_widget(block, r);
-    let mut lines = vec![Line::from("")];
-    for (i, l) in plan.into_iter().enumerate() {
-        lines.push(if i == 0 {
-            Line::from(Span::styled(format!(" {l}"), muted()))
-        } else {
-            Line::from(format!(" • {l}"))
-        });
-    }
-    lines.push(Line::from(""));
-    lines.push(Line::from(vec![
-        Span::styled(" y", Style::new().bold()),
-        Span::styled(" do it · any other key cancels", muted()),
-    ]));
-    f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
+    let [body, _, hint] = Layout::vertical([
+        Constraint::Min(0),
+        Constraint::Length(1),
+        Constraint::Length(1),
+    ])
+    .areas(inner);
+    f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), body);
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(" press y", Style::new().bold()),
+            Span::styled(" to do it · any other key cancels", muted()),
+        ])),
+        hint,
+    );
 }
 
 fn draw_picker(f: &mut Frame, p: &Picker, area: Rect) {
@@ -1054,6 +1072,40 @@ fn draw_picker(f: &mut Frame, p: &Picker, area: Rect) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn confirm_box_always_shows_the_key_to_press() {
+        use crate::ci::{Action, Plan, Rerun};
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+        let c = Confirm {
+            target: "Autofleet/autorepo#4296".parse().unwrap(),
+            plan: Plan {
+                action: Action::RerunSim,
+                pr_url: "https://github.com/Autofleet/autorepo/pull/4296".into(),
+                sha: "6d2f11f0000".into(),
+                add_label: None,
+                has_label: None,
+                rerun: Some(Rerun {
+                    job_id: 1,
+                    job_name: "call_apps_ci / Setup shared simulation".into(),
+                    job_url: "https://github.com/Autofleet/autorepo/actions/runs/42831596594/job/129893320691".into(),
+                    run: "run #19930 attempt 2".into(),
+                }),
+                note: None,
+                refused: false,
+            },
+        };
+        for (w, h) in [(60, 20), (80, 24), (120, 30), (200, 50)] {
+            let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
+            t.draw(|f| draw_confirm(f, &c, f.area())).unwrap();
+            let buf = t.backend().buffer();
+            let text: String = (0..h)
+                .map(|y| (0..w).map(|x| buf[(x, y)].symbol()).collect::<String>() + "\n")
+                .collect();
+            assert!(text.contains("press y to do it"), "{w}x{h}:\n{text}");
+        }
+    }
 
     #[test]
     fn fit_truncates_and_pads_by_display_width() {
