@@ -477,6 +477,21 @@ impl App {
                         let note = plan.note.unwrap_or_default();
                         self.say(format!("{target}: {note}"), plan.refused);
                     }
+                    // Another window opened while the plan was fetched: keep it.
+                    // Replacing it would drop what was typed there, and the next
+                    // keystroke meant for it (a `y`, say) would answer the
+                    // question instead.
+                    Ok(plan) if self.popup.is_some() => self.say(
+                        format!(
+                            "{} on {target}: not asked (another window is open); press {} again",
+                            plan.action.label(),
+                            match plan.action {
+                                Action::ReadyForE2e => "e",
+                                Action::RerunSim => "s",
+                            }
+                        ),
+                        false,
+                    ),
                     Ok(plan) => {
                         self.popup = Some(Popup::Confirm(Box::new(Confirm { target, plan })))
                     }
@@ -1212,6 +1227,31 @@ mod tests {
 
         app.on_msg(Msg::CiDone(Err("permission denied (403)".into())));
         assert!(app.status.as_ref().unwrap().error);
+    }
+
+    #[test]
+    fn a_late_ci_plan_never_replaces_an_open_window() {
+        let mut app = app_with(sample());
+        app.on_key(KeyEvent::from(KeyCode::Char('p')), 10);
+        app.on_key(KeyEvent::from(KeyCode::Char('a')), 10);
+        app.on_key(KeyEvent::from(KeyCode::Char('y')), 10);
+        app.ci_busy = true;
+        app.on_msg(Msg::CiPlan {
+            target: "o/r#7".parse().unwrap(),
+            result: Ok(sample_plan()),
+        });
+        assert!(!app.ci_busy);
+        match &app.popup {
+            Some(Popup::Follows(ed)) => assert_eq!(ed.input.as_deref(), Some("y")),
+            _ => panic!("the follow editor should still be open"),
+        }
+        assert!(app.status.as_ref().unwrap().text.contains("press e again"));
+        // the next keystroke still goes to the editor, not to a confirm
+        app.on_key(KeyEvent::from(KeyCode::Char('y')), 10);
+        match &app.popup {
+            Some(Popup::Follows(ed)) => assert_eq!(ed.input.as_deref(), Some("yy")),
+            _ => panic!("the follow editor should still be open"),
+        }
     }
 
     #[test]
