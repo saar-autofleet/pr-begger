@@ -15,6 +15,7 @@
           "deletions": 30,
           "author": { "__typename": "User", "login": "alice" },
           "repository": { "nameWithOwner": "Autofleet/api" },
+          "labels": { "nodes": [ { "name": "backend" }, { "name": "review: M" } ] },
           "reviewDecision": "REVIEW_REQUIRED",
           "mergeable": "MERGEABLE",
           "mergeStateStatus": "BEHIND",

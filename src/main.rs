@@ -7,6 +7,7 @@ mod kind;
 mod marker;
 mod model;
 mod request;
+mod size;
 mod store;
 mod target;
 mod tui;
@@ -211,6 +212,14 @@ fn main() -> Result<()> {
     }
 }
 
+/// `size:M` from a review label, else the raw `+120/-30`.
+fn cli_size(pr: &Pr) -> String {
+    match &pr.review_size {
+        Some(s) => format!("size:{}", s.bucket.name()),
+        None => format!("+{}/-{}", pr.additions, pr.deletions),
+    }
+}
+
 fn print_list(prs: &[Pr]) {
     let now = Utc::now();
     if prs.is_empty() {
@@ -219,12 +228,11 @@ fn print_list(prs: &[Pr]) {
     for pr in prs {
         let kind = pr.kind().map_or("-", Kind::id);
         println!(
-            "{:<12} {:<28} {:>4} +{}/-{} ci:{} review:{} merge:{}  {}  ({})",
+            "{:<12} {:<28} {:>4} {} ci:{} review:{} merge:{}  {}  ({})",
             kind,
             pr.key(),
             age(pr.created_at, now),
-            pr.additions,
-            pr.deletions,
+            cli_size(pr),
             pr.ci.word(),
             pr.review.word(),
             pr.merge.word(),

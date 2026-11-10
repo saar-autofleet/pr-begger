@@ -504,10 +504,7 @@ fn item_line(app: &App, pr: &Pr, cols: &Cols, selected: bool) -> Line<'static> {
         ));
     }
     if cols.size > 0 {
-        spans.push(Span::styled(
-            rfit(&format!("+{} −{}", pr.additions, pr.deletions), cols.size),
-            muted(),
-        ));
+        spans.push(Span::styled(rfit(&pr.size_short(), cols.size), muted()));
     }
     if app.screen == Screen::Mine {
         let a = pr.activity.clone().unwrap_or_default();
@@ -714,10 +711,7 @@ fn draw_detail(f: &mut Frame, app: &App, area: Rect) {
         "opened",
         vec![Span::raw(format!("{} ago", age(pr.created_at, now)))],
     ));
-    lines.push(kv(
-        "size",
-        vec![Span::raw(format!("+{} −{}", pr.additions, pr.deletions))],
-    ));
+    lines.push(kv("size", vec![Span::raw(pr.size_long())]));
     lines.push(kv(
         "ci",
         vec![ci_span(pr.ci), Span::raw(format!(" {}", pr.ci.word()))],

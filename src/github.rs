@@ -20,6 +20,7 @@ use crate::config::Config;
 use crate::follow::{author_chunks, Follows, Who};
 use crate::marker::{self, Comment, SEARCH_TOKEN};
 use crate::model::{Activity, Ci, Decision, Merge, Pr, Request, Review};
+use crate::size::ReviewSize;
 use crate::target::PrRef;
 
 const ENDPOINT: &str = "https://api.github.com/graphql";
@@ -547,6 +548,7 @@ query($ids: [ID!]!, $mine: Boolean!) {
       id number title url isDraft createdAt updatedAt additions deletions
       author { login }
       repository { nameWithOwner }
+      labels(first: 20) { nodes { name } }
       reviewDecision mergeable mergeStateStatus
       reviewRequests { totalCount }
       latestOpinionatedReviews(first: 20) {
@@ -714,6 +716,11 @@ struct Rollup {
 }
 
 #[derive(Deserialize)]
+struct Label {
+    name: String,
+}
+
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Repo {
     name_with_owner: String,
@@ -736,6 +743,7 @@ struct PrNode {
     deletions: u64,
     author: Option<Actor>,
     repository: Option<Repo>,
+    labels: Option<Nodes<Label>>,
     review_decision: Option<String>,
     mergeable: Option<String>,
     merge_state_status: Option<String>,
@@ -772,6 +780,8 @@ impl PrNode {
             .filter(|c| other(&c.author) && marker::parse(&c.body).is_none())
             .map(|c| c.created_at)
             .collect();
+        let labels = self.labels.map(|l| l.nodes).unwrap_or_default();
+        let review_size = ReviewSize::from_labels(labels.iter().map(|l| l.name.as_str()));
         let comments: Vec<Comment> = comment_nodes.into_iter().map(Comment::from).collect();
         let request = marker::newest(&comments).map(|f| Request {
             kind: f.marker.kind,
@@ -819,6 +829,7 @@ impl PrNode {
             updated_at: self.updated_at?,
             additions: self.additions,
             deletions: self.deletions,
+            review_size,
             draft: self.is_draft,
             ci,
             review: Review {
@@ -899,10 +910,18 @@ mod tests {
         assert_eq!(a.review.pending, 2);
         assert_eq!(a.merge, Merge::Behind);
         assert_eq!((a.additions, a.deletions), (120, 30));
+        assert_eq!(
+            a.review_size.as_ref().map(|s| s.bucket),
+            Some(crate::size::Bucket::M)
+        );
+        assert_eq!(a.size_short(), "review: M");
+        assert_eq!(a.size_long(), "review: M · +120 −30 raw");
         assert!(a.activity.is_none(), "board searches skip threads");
 
         let b = &prs[1];
         assert_eq!(b.kind(), None, "matched the search word but has no marker");
+        assert!(b.review_size.is_none(), "no review label");
+        assert_eq!(b.size_short(), "+1 −0", "falls back to the raw diff");
         assert_eq!(b.merge, Merge::Draft);
         assert_eq!(b.ci, Ci::None);
 
@@ -929,7 +948,10 @@ mod tests {
             "repository":{"nameWithOwner":"o/r"},"reviewDecision":"CHANGES_REQUESTED",
             "mergeable":"CONFLICTING","mergeStateStatus":"DIRTY",
             "commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"PENDING"}}}]},
-            "comments":{"totalCount":0,"nodes":[]}}]}}"#;
+            "comments":{"totalCount":1,"nodes":[{"id":"IC_9",
+            "body":"<!-- review-effort -->\n🟢 **Review: S** (~3 lines of added code to read)",
+            "createdAt":"2026-11-01T00:00:00Z","lastEditedAt":null,
+            "author":{"__typename":"User","login":"a"}}]}}]}}"#;
         let data: NodesData = decode(text).unwrap();
         let prs: Vec<Pr> = data
             .nodes
@@ -944,6 +966,11 @@ mod tests {
         assert_eq!(pr.review.decision, Decision::ChangesRequested);
         assert_eq!(pr.merge, Merge::Conflict);
         assert_eq!(pr.kind(), None);
+        assert!(
+            pr.review_size.is_none(),
+            "a review-effort comment without the label is not a size"
+        );
+        assert_eq!(pr.size_short(), "+1 −2");
     }
 
     #[test]
