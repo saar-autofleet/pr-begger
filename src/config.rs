@@ -22,6 +22,38 @@ pub struct Config {
     pub refresh_secs: u64,
     /// Upper bound on PRs fetched per search scope.
     pub max_prs: usize,
+    /// Names the e2e re-run actions look for in a PR's CI.
+    pub ci: CiConfig,
+}
+
+/// What `ready-e2e` and `rerun-sim` look for. Defaults are autorepo's:
+/// `.github/workflows/detect-affected.yml` (workflow "Detect Affected
+/// Projects") calls `main_ci.yml` as `call_apps_ci`, so its jobs show up as
+/// `call_apps_ci / check_e2e_label` and so on. Jobs match on the name after
+/// the last ` / `, so the caller's prefix does not matter.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct CiConfig {
+    /// Workflow (run name) holding the jobs; the newest run of it for the
+    /// PR's head commit is the one acted on.
+    pub workflow: String,
+    /// Label the e2e gate checks for.
+    pub e2e_label: String,
+    /// Job that fails while the label is missing.
+    pub label_check_job: String,
+    /// Job every e2e suite runs after; re-running it re-runs them.
+    pub shared_sim_job: String,
+}
+
+impl Default for CiConfig {
+    fn default() -> Self {
+        CiConfig {
+            workflow: "Detect Affected Projects".into(),
+            e2e_label: "ready-for-e2e".into(),
+            label_check_job: "check_e2e_label".into(),
+            shared_sim_job: "Setup shared simulation".into(),
+        }
+    }
 }
 
 impl Default for Config {
@@ -31,6 +63,7 @@ impl Default for Config {
             repos: Vec::new(),
             refresh_secs: 180,
             max_prs: 200,
+            ci: CiConfig::default(),
         }
     }
 }
@@ -83,6 +116,16 @@ impl Config {
         }
         if !(1..=1000).contains(&self.max_prs) {
             bail!("max_prs must be between 1 and 1000");
+        }
+        for (key, v) in [
+            ("ci.workflow", &self.ci.workflow),
+            ("ci.e2e_label", &self.ci.e2e_label),
+            ("ci.label_check_job", &self.ci.label_check_job),
+            ("ci.shared_sim_job", &self.ci.shared_sim_job),
+        ] {
+            if v.trim().is_empty() {
+                bail!("{key} must not be empty");
+            }
         }
         Ok(())
     }
@@ -148,6 +191,13 @@ orgs = ["Autofleet"]          # orgs whose open PRs are searched
 repos = []                    # extra owner/name repos
 refresh_secs = 180            # auto-refresh while the TUI is open (0 = off)
 max_prs = 200                 # cap per org/repo search
+
+# what `e` / `ready-e2e` and `s` / `rerun-sim` look for (autorepo's defaults)
+[ci]
+workflow = "Detect Affected Projects"     # workflow whose newest run for the PR head is used
+e2e_label = "ready-for-e2e"               # label the e2e gate wants
+label_check_job = "check_e2e_label"       # job that fails without the label
+shared_sim_job = "Setup shared simulation" # job the e2e suites run after
 "#;
 
 #[cfg(test)]
@@ -181,6 +231,8 @@ mod tests {
         assert!(Config::parse("orgs = [\"a/b\"]").is_err());
         assert!(Config::parse("orgs = []").is_err());
         assert!(Config::parse("max_prs = 0").is_err());
+        assert!(Config::parse("[ci]\ne2e_label = \"\"").is_err());
+        assert!(Config::parse("[ci]\nlabel = \"x\"").is_err());
     }
 
     #[test]
@@ -191,6 +243,16 @@ mod tests {
         assert_eq!(c.scopes(), vec!["repo:saar-autofleet/pr-begger"]);
         let c = Config::default().with_overrides(&[], &[]).unwrap();
         assert_eq!(c.scopes(), vec!["org:Autofleet"]);
+    }
+
+    #[test]
+    fn ci_names_default_to_autorepo_and_can_be_overridden() {
+        let c = Config::default();
+        assert_eq!(c.ci.e2e_label, "ready-for-e2e");
+        assert_eq!(c.ci.shared_sim_job, "Setup shared simulation");
+        let c = Config::parse("[ci]\nshared_sim_job = \"Boot sim\"").unwrap();
+        assert_eq!(c.ci.shared_sim_job, "Boot sim");
+        assert_eq!(c.ci.label_check_job, "check_e2e_label");
     }
 
     #[test]

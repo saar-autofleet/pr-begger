@@ -9,7 +9,7 @@ use ratatui::Frame;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use super::pixel::{self, kind_color, pal};
-use super::{following_group, App, FollowEditor, Picker, Popup, Screen};
+use super::{following_group, App, Confirm, FollowEditor, Picker, Popup, Screen};
 use crate::follow::Who;
 use crate::kind::Kind;
 use crate::model::{age, Ci, Decision, Merge, Pr};
@@ -168,6 +168,7 @@ pub fn draw(f: &mut Frame, app: &mut App) -> usize {
         Some(Popup::Help) => draw_help(f, area),
         Some(Popup::Pick(p)) => draw_picker(f, p, area),
         Some(Popup::Follows(ed)) => draw_follows(f, app, ed, area),
+        Some(Popup::Confirm(c)) => draw_confirm(f, c, area),
         None => {}
     }
     page
@@ -768,6 +769,10 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
         txt("open"),
         key("c"),
         txt("beg"),
+        key("e"),
+        txt("e2e"),
+        key("s"),
+        txt("rerun sim"),
         key("f"),
         txt("filter"),
         key("tab"),
@@ -834,7 +839,7 @@ fn centered(area: Rect, w: u16, h: u16) -> Rect {
 }
 
 fn draw_help(f: &mut Frame, area: Rect) {
-    let r = centered(area, 66, 31);
+    let r = centered(area, 66, 33);
     f.render_widget(Clear, r);
     let block = window("Help", r.width, pal::LILAC);
     let k = |key: &str, what: &str| {
@@ -848,6 +853,8 @@ fn draw_help(f: &mut Frame, area: Rect) {
         k("g/G pgup/pgdn", "top / bottom / page"),
         k("enter / o", "open the PR in your browser"),
         k("c / b", "beg: set or change the CR kind (posts as you)"),
+        k("e", "ready for e2e: add the label, re-run the label check"),
+        k("s", "re-run the shared simulation (and the e2e after it)"),
         k("f / F", "filter by kind (cycles)"),
         k("tab / 1 2 3", "begging board / my PRs / following"),
         k("/", "search titles, numbers, repos, authors (fzf)"),
@@ -964,6 +971,34 @@ fn draw_follows(f: &mut Frame, app: &App, ed: &FollowEditor, area: Rect) {
         }
     }
     f.render_widget(Paragraph::new(lines), inner);
+}
+
+/// `e` / `s`: the plan, and one key to go.
+fn draw_confirm(f: &mut Frame, c: &Confirm, area: Rect) {
+    let plan = c.plan.lines();
+    let r = centered(area, 78, plan.len() as u16 + 6);
+    f.render_widget(Clear, r);
+    let title = match c.plan.action {
+        crate::ci::Action::ReadyForE2e => "Ready for e2e",
+        crate::ci::Action::RerunSim => "Re-run shared simulation",
+    };
+    let block = window(title, r.width, pal::LILAC);
+    let inner = block.inner(r);
+    f.render_widget(block, r);
+    let mut lines = vec![Line::from("")];
+    for (i, l) in plan.into_iter().enumerate() {
+        lines.push(if i == 0 {
+            Line::from(Span::styled(format!(" {l}"), muted()))
+        } else {
+            Line::from(format!(" • {l}"))
+        });
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::from(vec![
+        Span::styled(" y", Style::new().bold()),
+        Span::styled(" do it · any other key cancels", muted()),
+    ]));
+    f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
 }
 
 fn draw_picker(f: &mut Frame, p: &Picker, area: Rect) {

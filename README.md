@@ -61,6 +61,47 @@ If several people's request comments are on a PR, **the newest one wins**
 (newest by last edit, else by creation). You can also change the kind from the
 TUI with `c`.
 
+## Nudge e2e CI (autorepo)
+
+Two shortcuts for autorepo's PR CI, so you do not have to dig through the
+Actions page for the right job to re-run:
+
+```sh
+pr-begger ready-e2e Autofleet/autorepo#4315             # add ready-for-e2e, re-run the label check
+pr-begger rerun-sim https://github.com/Autofleet/autorepo/pull/4318   # e2e flaked: re-run from the shared simulation
+pr-begger rerun-sim Autofleet/autorepo#4318 --dry-run   # show what it would do, change nothing
+```
+
+In the TUI they are `e` and `s` on the selected PR. Both first look (read-only)
+at the PR and the newest `Detect Affected Projects` run for its head commit,
+show what they will do, and act only after you press `y`. `--dry-run` stops
+after the look.
+
+- **`ready-e2e`** (`e`): adds the `ready-for-e2e` label if it is missing, then
+  re-runs `call_apps_ci / check_e2e_label` when that job failed. That job
+  reads the labels when it runs, and re-running a job also re-runs every job
+  after it, so the shared simulation and the e2e suites follow. Re-running the
+  simulation instead would not work: it is gated on the label check's
+  result, which stays "not found" until the check itself runs again. If the
+  check has not run yet, or the run has no such job, only the label is added
+  (the check will see it); if it already passed there is nothing to re-run.
+- **`rerun-sim`** (`s`): re-runs `call_apps_ci / Setup shared simulation`,
+  which `main_ci.yml` names as the re-run point for e2e: everything after it
+  re-runs, suites that already passed skip themselves, and the platform e2e
+  status is reset.
+
+Both refuse, with the reason, when the PR is closed, there is no CI run for
+the head commit, the job is missing (or was skipped, for `rerun-sim`: add the
+label first), or the run is **still in progress**: GitHub cannot re-run part
+of a live run, and queueing another simulation behind it would duplicate it.
+`ready-e2e` still adds the label in that case and tells you to re-run once
+the run finishes. Re-running jobs and adding labels need write access to the
+repo; without it you get GitHub's "permission denied" message. Labels and
+re-runs go through GitHub's REST API (`gh pr edit --add-label` is broken by
+the Projects (classic) deprecation). The workflow, label and job names are
+configurable (see [Config](#config)); jobs match on the name after the last
+` / `, so `check_e2e_label` finds `call_apps_ci / check_e2e_label`.
+
 ## The board
 
 Run `pr-begger` with no arguments.
@@ -93,7 +134,7 @@ Run `pr-begger` with no arguments.
                                                                                         │                                      │
                                                                                         │ author   dana                        │
                                                                                         └──────────────────────────────────────┘
- / search  ↑↓ move  ⏎ open  c beg  f filter  tab screen  w followed  p people  r refresh  ? help  q quit
+ / search  ↑↓ move  ⏎ open  c beg  e e2e  s rerun sim  f filter  tab screen  w followed  p people  r refresh  ? help  q quit
 ```
 
 `tab` (or `2`) switches to **My PRs**: your own open PRs in the same orgs, with
@@ -143,7 +184,7 @@ read. PR Begger never sets or changes the label.
                                                                                         │ author   you                         │
                                                                                         │ opened   21h ago                     │
                                                                                         └──────────────────────────────────────┘
- / search  ↑↓ move  ⏎ open  c beg  f filter  tab screen  x seen  p people  r refresh  ? help  q quit
+ / search  ↑↓ move  ⏎ open  c beg  e e2e  s rerun sim  f filter  tab screen  x seen  p people  r refresh  ? help  q quit
 ```
 
 ### Following
@@ -181,7 +222,7 @@ narrows it to PRs from people you follow.
                                                                                         │                                      │
                                                                                         │ author   dana                        │
                                                                                         └──────────────────────────────────────┘
- / search  ↑↓ move  ⏎ open  c beg  f filter  tab screen  v by repo  + follow  p people  r refresh  ? help  q quit
+ / search  ↑↓ move  ⏎ open  c beg  e e2e  s rerun sim  f filter  tab screen  v by repo  + follow  p people  r refresh  ? help  q
 ```
 
 Follow from the TUI with `p` (a small window: `a` add, `d` remove), or press
@@ -233,7 +274,7 @@ teams = ["your-org/your-team"]
 
 
 
- / search  ↑↓ move  ⏎ open  c beg  f filter  tab screen  v by repo  + follow  p people  r refresh  ?
+ / search  ↑↓ move  ⏎ open  c beg  e e2e  s rerun sim  f filter  tab screen  v by repo  + follow  p
 ```
 
 (These are the real renderer's output for demo data:
@@ -251,6 +292,8 @@ in any terminal.)
 | `j`/`k`, `↓`/`↑` | move (`g`/`G` top/bottom, `pgup`/`pgdn`, `ctrl+d`/`ctrl+u`) |
 | `enter` / `o` | open the PR in your browser |
 | `c` / `b` | beg: set or change the CR kind of the selected PR (posts as you) |
+| `e` | ready for e2e: add the e2e label, re-run the label check (asks first, `y` to go) |
+| `s` | re-run the shared simulation and the e2e after it (asks first, `y` to go) |
 | `f` / `F` | filter by kind (cycles all → stamp → ai → design) |
 | `tab`, `1`, `2`, `3` | begging board / my PRs / following |
 | `x` | mark a PR's activity as seen |
@@ -303,6 +346,13 @@ orgs = ["Autofleet"]          # orgs whose open PRs are searched
 repos = []                    # extra owner/name repos
 refresh_secs = 180            # auto-refresh while the TUI is open (0 = off)
 max_prs = 200                 # cap per org/repo search
+
+# what `e` / `ready-e2e` and `s` / `rerun-sim` look for (autorepo's defaults)
+[ci]
+workflow = "Detect Affected Projects"     # workflow whose newest run for the PR head is used
+e2e_label = "ready-for-e2e"               # label the e2e gate wants
+label_check_job = "check_e2e_label"       # job that fails without the label
+shared_sim_job = "Setup shared simulation" # job the e2e suites run after
 ```
 
 **Which repos.** By default every repo in the `Autofleet` org is covered, so
