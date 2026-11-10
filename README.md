@@ -1,6 +1,11 @@
 # PR Begger
 
-Triage code-review requests by kind, from a pixel-art TUI.
+Triage code-review requests by kind, from a pixel-art TUI. Blazing fast.
+
+It is a native Rust binary: a release build starts and prints `--help` in
+about 10 ms (warm, measured on an Apple M4 Pro). Listing PRs costs one
+GraphQL search per page, then fetches PR details in parallel batches, so the
+wait is mostly GitHub's network round trips.
 
 Whoever opens a PR says what kind of review it needs, with one PR comment:
 
