@@ -13,6 +13,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
+use crate::ci::{self, Action, Plan};
 use crate::config::{self, Config};
 use crate::follow::{FollowFile, Follows, Who};
 use crate::github::Client;
@@ -48,6 +49,13 @@ pub enum Popup {
     Help,
     Pick(Box<Picker>),
     Follows(FollowEditor),
+    /// `e` / `s`: what the CI action would do; `y` does it.
+    Confirm(Box<Confirm>),
+}
+
+pub struct Confirm {
+    pub target: PrRef,
+    pub plan: Plan,
 }
 
 /// The `p` window: who you follow, with add/remove.
@@ -77,6 +85,13 @@ pub enum Msg {
         why: Option<String>,
         result: Result<(String, bool), String>,
     },
+    /// The read-only plan for a CI action.
+    CiPlan {
+        target: PrRef,
+        result: Result<Plan, String>,
+    },
+    /// A CI action carried out (summary or error).
+    CiDone(Result<String, String>),
 }
 
 pub struct Status {
@@ -121,6 +136,8 @@ pub struct App {
     want_search: bool,
     /// Following screen grouped by repo instead of by author.
     pub following_by_repo: bool,
+    /// A CI action is being planned or carried out.
+    pub ci_busy: bool,
 }
 
 /// The Following screen's group for a PR, lowercased for sorting.
@@ -189,6 +206,7 @@ impl App {
             quit: false,
             want_search: false,
             following_by_repo: false,
+            ci_busy: false,
         };
         if let Some(snap) = app.cache.load(&app.cfg.scope_key()) {
             app.board = snap.board;
@@ -451,6 +469,41 @@ impl App {
                 }
                 Err(e) => self.say(format!("could not beg: {e}"), true),
             },
+            Msg::CiPlan { target, result } => {
+                self.ci_busy = false;
+                match result {
+                    Err(e) => self.say(e, true),
+                    Ok(plan) if !plan.acts() => {
+                        let note = plan.note.unwrap_or_default();
+                        self.say(format!("{target}: {note}"), plan.refused);
+                    }
+                    // Another window opened while the plan was fetched: keep it.
+                    // Replacing it would drop what was typed there, and the next
+                    // keystroke meant for it (a `y`, say) would answer the
+                    // question instead.
+                    Ok(plan) if self.popup.is_some() => self.say(
+                        format!(
+                            "{} on {target}: not asked (another window is open); press {} again",
+                            plan.action.label(),
+                            match plan.action {
+                                Action::ReadyForE2e => "e",
+                                Action::RerunSim => "s",
+                            }
+                        ),
+                        false,
+                    ),
+                    Ok(plan) => {
+                        self.popup = Some(Popup::Confirm(Box::new(Confirm { target, plan })))
+                    }
+                }
+            }
+            Msg::CiDone(result) => {
+                self.ci_busy = false;
+                match result {
+                    Ok(summary) => self.say(summary, false),
+                    Err(e) => self.say(e, true),
+                }
+            }
         }
     }
 
@@ -566,6 +619,42 @@ impl App {
         self.popup = Some(Popup::Pick(Box::new(Picker { pr, choice, why })));
     }
 
+    /// `e` / `s`: work out what the action would do (read-only), then ask.
+    fn start_ci(&mut self, action: Action) {
+        let Some(client) = self.client.clone() else {
+            return self.say("no GitHub token: cannot touch CI", true);
+        };
+        if self.ci_busy {
+            return self.say("still working on the last CI action…", false);
+        }
+        let Some(target) = self.selected().and_then(pr_ref) else {
+            return;
+        };
+        self.ci_busy = true;
+        self.say(format!("{}: checking {target}…", action.label()), false);
+        let cfg = self.cfg.ci.clone();
+        let tx = self.tx.clone();
+        std::thread::spawn(move || {
+            let result =
+                ci::plan(client.as_ref(), &cfg, &target, action).map_err(|e| format!("{e:#}"));
+            let _ = tx.send(Msg::CiPlan { target, result });
+        });
+    }
+
+    fn confirm_ci(&mut self, c: Confirm) {
+        let Some(client) = self.client.clone() else {
+            return;
+        };
+        self.ci_busy = true;
+        self.say(format!("{} on {}…", c.plan.action.label(), c.target), false);
+        let tx = self.tx.clone();
+        std::thread::spawn(move || {
+            let result =
+                ci::execute(client.as_ref(), &c.target, &c.plan).map_err(|e| format!("{e:#}"));
+            let _ = tx.send(Msg::CiDone(result));
+        });
+    }
+
     fn submit_pick(&mut self, picker: Picker) {
         let Some(client) = self.client.clone() else {
             return;
@@ -573,13 +662,8 @@ impl App {
         let kind = Kind::ALL[picker.choice];
         let why = Some(picker.why.trim().to_string()).filter(|w| !w.is_empty());
         let pr = picker.pr;
-        let Some((owner, repo)) = pr.repo.split_once('/') else {
+        let Some(target) = pr_ref(&pr) else {
             return;
-        };
-        let target = PrRef {
-            owner: owner.into(),
-            repo: repo.into(),
-            number: pr.number,
         };
         let tx = self.tx.clone();
         self.say(
@@ -636,6 +720,14 @@ impl App {
                 self.follow_editor_key(ed, key);
                 return;
             }
+            Some(Popup::Confirm(c)) => {
+                if matches!(key.code, KeyCode::Char('y') | KeyCode::Char('Y')) {
+                    self.confirm_ci(*c);
+                } else {
+                    self.say("cancelled", false);
+                }
+                return;
+            }
             None => {}
         }
         let page = page.max(1) as isize;
@@ -680,6 +772,8 @@ impl App {
             KeyCode::Char('F') => self.cycle_filter(true),
             KeyCode::Enter | KeyCode::Char('o') => self.open_selected(),
             KeyCode::Char('c') | KeyCode::Char('b') => self.start_pick(),
+            KeyCode::Char('e') => self.start_ci(Action::ReadyForE2e),
+            KeyCode::Char('s') => self.start_ci(Action::RerunSim),
             KeyCode::Char('x') => {
                 if let Some(pr) = self.selected().cloned() {
                     self.mark_seen(&pr);
@@ -774,6 +868,16 @@ impl App {
             Err(e) => self.say(format!("fzf failed: {e}"), true),
         }
     }
+}
+
+/// `owner/name#n` of a listed PR.
+fn pr_ref(pr: &Pr) -> Option<PrRef> {
+    let (owner, repo) = pr.repo.split_once('/')?;
+    Some(PrRef {
+        owner: owner.into(),
+        repo: repo.into(),
+        number: pr.number,
+    })
 }
 
 fn open_url(url: &str) -> std::io::Result<()> {
@@ -1076,6 +1180,91 @@ mod tests {
         assert!(app.popup.is_none());
     }
 
+    fn sample_plan() -> Plan {
+        Plan {
+            action: Action::ReadyForE2e,
+            pr_url: "https://github.com/o/r/pull/7".into(),
+            sha: "abcdef1234".into(),
+            add_label: Some("ready-for-e2e".into()),
+            has_label: None,
+            rerun: Some(ci::Rerun {
+                job_id: 3,
+                job_name: "call_apps_ci / check_e2e_label".into(),
+                job_url: String::new(),
+                run: "run #5".into(),
+            }),
+            note: None,
+            refused: false,
+        }
+    }
+
+    #[test]
+    fn ci_plan_asks_once_and_any_other_key_cancels() {
+        let mut app = app_with(sample());
+        let target: PrRef = "o/r#7".parse().unwrap();
+        app.ci_busy = true;
+        app.on_msg(Msg::CiPlan {
+            target: target.clone(),
+            result: Ok(sample_plan()),
+        });
+        assert!(!app.ci_busy);
+        assert!(matches!(app.popup, Some(Popup::Confirm(_))));
+        app.on_key(KeyEvent::from(KeyCode::Char('n')), 10);
+        assert!(app.popup.is_none());
+        assert_eq!(app.status.as_ref().unwrap().text, "cancelled");
+
+        // a plan with nothing to do is a message, not a question
+        let mut idle = sample_plan();
+        idle.add_label = None;
+        idle.rerun = None;
+        idle.note = Some("`check_e2e_label` already passed".into());
+        app.on_msg(Msg::CiPlan {
+            target,
+            result: Ok(idle),
+        });
+        assert!(app.popup.is_none());
+        assert!(app.status.as_ref().unwrap().text.contains("already passed"));
+
+        app.on_msg(Msg::CiDone(Err("permission denied (403)".into())));
+        assert!(app.status.as_ref().unwrap().error);
+    }
+
+    #[test]
+    fn a_late_ci_plan_never_replaces_an_open_window() {
+        let mut app = app_with(sample());
+        app.on_key(KeyEvent::from(KeyCode::Char('p')), 10);
+        app.on_key(KeyEvent::from(KeyCode::Char('a')), 10);
+        app.on_key(KeyEvent::from(KeyCode::Char('y')), 10);
+        app.ci_busy = true;
+        app.on_msg(Msg::CiPlan {
+            target: "o/r#7".parse().unwrap(),
+            result: Ok(sample_plan()),
+        });
+        assert!(!app.ci_busy);
+        match &app.popup {
+            Some(Popup::Follows(ed)) => assert_eq!(ed.input.as_deref(), Some("y")),
+            _ => panic!("the follow editor should still be open"),
+        }
+        assert!(app.status.as_ref().unwrap().text.contains("press e again"));
+        // the next keystroke still goes to the editor, not to a confirm
+        app.on_key(KeyEvent::from(KeyCode::Char('y')), 10);
+        match &app.popup {
+            Some(Popup::Follows(ed)) => assert_eq!(ed.input.as_deref(), Some("yy")),
+            _ => panic!("the follow editor should still be open"),
+        }
+    }
+
+    #[test]
+    fn ci_keys_need_a_token() {
+        let mut app = app_with(sample());
+        for k in ['e', 's'] {
+            app.status = None;
+            app.on_key(KeyEvent::from(KeyCode::Char(k)), 10);
+            assert!(app.status.as_ref().unwrap().error);
+            assert!(!app.ci_busy);
+        }
+    }
+
     #[test]
     fn renders_without_panicking_at_many_sizes() {
         use ratatui::backend::TestBackend;
@@ -1084,9 +1273,13 @@ mod tests {
         for (w, h) in [(20, 5), (60, 15), (100, 30), (160, 50)] {
             for screen in Screen::ALL {
                 app.screen = screen;
-                for popup in [0, 1, 2, 3, 4] {
+                for popup in [0, 1, 2, 3, 4, 5] {
                     app.popup = match popup {
                         1 => Some(Popup::Help),
+                        5 => Some(Popup::Confirm(Box::new(Confirm {
+                            target: "o/r#7".parse().unwrap(),
+                            plan: sample_plan(),
+                        }))),
                         3 => Some(Popup::Follows(FollowEditor::default())),
                         4 => Some(Popup::Follows(FollowEditor {
                             cursor: 0,

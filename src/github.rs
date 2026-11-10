@@ -24,6 +24,7 @@ use crate::size::ReviewSize;
 use crate::target::PrRef;
 
 const ENDPOINT: &str = "https://api.github.com/graphql";
+const REST: &str = "https://api.github.com";
 const PAGE: usize = 100;
 /// Smallest batch of PRs per detail lookup, and how many lookups may run at
 /// once (bigger scopes get bigger batches rather than more connections).
@@ -460,6 +461,59 @@ impl Client {
             .to_string())
     }
 
+    /// One REST call (`path` starts with `/`). Labels and job re-runs go
+    /// through REST: `gh pr edit --add-label` uses a GraphQL mutation that
+    /// the Projects (classic) deprecation broke, and re-runs have no GraphQL
+    /// mutation at all.
+    pub fn rest(&self, method: &str, path: &str, body: Option<&Value>) -> Result<Value> {
+        let started = std::time::Instant::now();
+        let url = format!("{REST}{path}");
+        let auth = format!("Bearer {}", self.token);
+        let resp = match method {
+            "GET" => self
+                .agent
+                .get(&url)
+                .header("Authorization", &auth)
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .call(),
+            "POST" => self
+                .agent
+                .post(&url)
+                .header("Authorization", &auth)
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .header("Content-Type", "application/json")
+                .send(
+                    body.map_or_else(|| "{}".to_string(), Value::to_string)
+                        .as_str(),
+                ),
+            _ => bail!("unsupported method {method}"),
+        };
+        let mut resp = resp.context("talking to api.github.com")?;
+        let status = resp.status().as_u16();
+        let text = resp
+            .body_mut()
+            .with_config()
+            .limit(16 * 1024 * 1024)
+            .read_to_string()
+            .context("reading GitHub response")?;
+        if std::env::var_os("PR_BEGGER_DEBUG").is_some() {
+            eprintln!(
+                "[pr-begger] {status} {:>5}ms {:>8}B  {method} {path}",
+                started.elapsed().as_millis(),
+                text.len()
+            );
+        }
+        if let Some(e) = rest_error(status, &text) {
+            return Err(e);
+        }
+        if text.trim().is_empty() {
+            return Ok(Value::Null);
+        }
+        serde_json::from_str(&text).context("decoding GitHub response")
+    }
+
     pub fn update_comment(&self, comment_id: &str, body: &str) -> Result<String> {
         let v: Value = self.graphql(
             "mutation($i:ID!,$b:String!){updateIssueComment(input:{id:$i,body:$b}){issueComment{url}}}",
@@ -470,6 +524,28 @@ impl Client {
             .unwrap_or_default()
             .to_string())
     }
+}
+
+/// The error a non-2xx REST answer means, worded for the person who has to
+/// act on it.
+pub fn rest_error(status: u16, body: &str) -> Option<anyhow::Error> {
+    if (200..300).contains(&status) {
+        return None;
+    }
+    let msg = serde_json::from_str::<Value>(body)
+        .ok()
+        .and_then(|v| v.get("message").and_then(Value::as_str).map(String::from))
+        .unwrap_or_else(|| snippet(body));
+    let lower = msg.to_lowercase();
+    Some(match status {
+        401 => anyhow!("GitHub rejected the token (401): run `gh auth login` or set GITHUB_TOKEN"),
+        403 | 429 if lower.contains("rate limit") => {
+            anyhow!("GitHub rate limited the request ({status}): {msg}")
+        }
+        403 => anyhow!("permission denied (403): {msg}; your token needs write access to the repo"),
+        404 => anyhow!("not found (404): it does not exist or your token cannot see it"),
+        _ => anyhow!("GitHub returned {status}: {msg}"),
+    })
 }
 
 fn snippet(s: &str) -> String {
@@ -971,6 +1047,24 @@ mod tests {
             "a review-effort comment without the label is not a size"
         );
         assert_eq!(pr.size_short(), "+1 −2");
+    }
+
+    #[test]
+    fn rest_errors_say_what_to_do() {
+        assert!(rest_error(200, "").is_none());
+        assert!(rest_error(201, "{}").is_none());
+        let e = |s, b| rest_error(s, b).unwrap().to_string();
+        assert!(e(401, "{}").contains("gh auth login"));
+        assert!(e(
+            403,
+            r#"{"message":"Resource not accessible by personal access token"}"#
+        )
+        .contains("permission denied (403): Resource not accessible"));
+        assert!(
+            e(403, r#"{"message":"API rate limit exceeded for user"}"#).contains("rate limited")
+        );
+        assert!(e(404, r#"{"message":"Not Found"}"#).contains("cannot see it"));
+        assert!(e(422, "boom").contains("422: boom"));
     }
 
     #[test]

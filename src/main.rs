@@ -1,5 +1,6 @@
 //! PR Begger: triage code-review requests by kind from a pixel-art TUI.
 
+mod ci;
 mod config;
 mod follow;
 mod github;
@@ -58,6 +59,26 @@ enum Cmd {
         #[arg(long, short)]
         why: Option<String>,
         /// Print the comment instead of posting it.
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Add the e2e label (`ready-for-e2e`) and re-run the label check
+    /// (`check_e2e_label`) so the e2e suites start. Names come from [ci] config.
+    #[command(name = "ready-e2e")]
+    ReadyE2e {
+        /// PR URL or owner/repo#number.
+        pr: PrRef,
+        /// Show what would be done, change nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Re-run the shared-simulation job (`Setup shared simulation`) and every
+    /// e2e suite after it, on the PR head's latest finished CI run.
+    #[command(name = "rerun-sim")]
+    RerunSim {
+        /// PR URL or owner/repo#number.
+        pr: PrRef,
+        /// Show what would be done, change nothing.
         #[arg(long)]
         dry_run: bool,
     },
@@ -137,6 +158,10 @@ fn main() -> Result<()> {
             );
             Ok(())
         }
+        Some(Cmd::ReadyE2e { pr, dry_run }) => {
+            ci_action(&cli, pr, ci::Action::ReadyForE2e, *dry_run)
+        }
+        Some(Cmd::RerunSim { pr, dry_run }) => ci_action(&cli, pr, ci::Action::RerunSim, *dry_run),
         Some(Cmd::List { mine, following }) => {
             let cfg = load_config(&cli)?;
             let client = github::Client::from_env()?;
@@ -210,6 +235,24 @@ fn main() -> Result<()> {
             Ok(())
         }
     }
+}
+
+/// Plan from read-only calls, print it, then (unless a dry run) carry it out.
+fn ci_action(cli: &Cli, pr: &PrRef, action: ci::Action, dry_run: bool) -> Result<()> {
+    let cfg = load_config(cli)?;
+    let client = github::Client::from_env()?;
+    let plan = ci::plan(&client, &cfg.ci, pr, action)
+        .with_context(|| format!("{} on {pr}", action.label()))?;
+    print!("{plan}");
+    if dry_run {
+        println!("(dry run: nothing changed)");
+        return Ok(());
+    }
+    if !plan.acts() && !plan.refused {
+        return Ok(());
+    }
+    println!("{}", ci::execute(&client, pr, &plan)?);
+    Ok(())
 }
 
 /// `size:M` from a review label, else the raw `+120/-30`.
